@@ -94,4 +94,4 @@ jobs:
             echo "CLOUDFLARE_API_TOKEN not set; skipping"
             exit 0
           fi
-          npx wrangler pages deploy docs/dist --project-name riotermjs
+          cd docs && npx wrangler pages deploy dist --project-name riotermjs
