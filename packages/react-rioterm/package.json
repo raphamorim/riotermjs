@@ -1,0 +1,43 @@
+{
+  "name": "react-rioterm",
+  "version": "0.0.2",
+  "description": "React component for rioterm: Rio's Rust terminal core in WebAssembly, rendered as DOM",
+  "keywords": [
+    "react",
+    "terminal",
+    "rio",
+    "rioterm",
+    "wasm"
+  ],
+  "license": "MIT",
+  "repository": "github:raphamorim/riotermjs",
+  "homepage": "https://raphamorim.github.io/riotermjs/",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "rioterm": "^0.0.2"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.13",
+    "react": "^19.2.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}
