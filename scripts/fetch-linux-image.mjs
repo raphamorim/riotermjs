@@ -10,17 +10,23 @@ import { pipeline } from 'node:stream/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const out = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'public', 'v86');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const out = join(root, 'docs', 'public', 'v86');
+const cache = join(root, '.v86-cache');
 mkdirSync(out, { recursive: true });
+mkdirSync(cache, { recursive: true });
 
+// The kernel is only an input to the state snapshot (built once by
+// build-v86-state.mjs); visitors download the snapshot, not the kernel,
+// so it stays out of docs/public.
 const ASSETS = [
-  ['buildroot-bzimage68.bin', 'https://i.copy.sh/buildroot-bzimage68.bin'],
-  ['seabios.bin', 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin'],
-  ['vgabios.bin', 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin'],
+  [join(cache, 'buildroot-bzimage68.bin'), 'https://i.copy.sh/buildroot-bzimage68.bin'],
+  [join(out, 'seabios.bin'), 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin'],
+  [join(out, 'vgabios.bin'), 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin'],
 ];
 
-for (const [name, url] of ASSETS) {
-  const path = join(out, name);
+for (const [path, url] of ASSETS) {
+  const name = path.split('/').pop();
   if (existsSync(path) && statSync(path).size > 0) {
     console.log(`have ${name}`);
     continue;

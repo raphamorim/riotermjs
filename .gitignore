@@ -11,3 +11,4 @@ docs/public/v86/
 
 *.log
 .DS_Store
+.v86-cache/

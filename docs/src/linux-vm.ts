@@ -30,13 +30,18 @@ export class LinuxSession {
       vga_memory_size: 2 * 1024 * 1024,
       bios: { url: `${base}v86/seabios.bin` },
       vga_bios: { url: `${base}v86/vgabios.bin` },
-      bzimage: { url: `${base}v86/buildroot-bzimage68.bin` },
-      // The same cmdline v86's own tests boot buildroot with; console on
-      // the serial port is what makes the shell appear here.
-      cmdline:
-        'tsc=reliable mitigations=off random.trust_cpu=on console=ttyS0',
+      // Restore a pre-booted snapshot (scripts/build-v86-state.mjs)
+      // instead of booting the kernel in the visitor's tab; v86
+      // decompresses zstd states natively.
+      initial_state: { url: `${base}v86/v86state.bin.zst` },
       autostart: true,
       disable_speaker: true,
+    });
+
+    // The restored VM does not re-print its prompt; nudge the shell once
+    // the state is in.
+    this.emulator.add_listener('emulator-ready', () => {
+      setTimeout(() => this.emulator.serial0_send('\n'), 300);
     });
 
     this.emulator.add_listener('serial0-output-byte', (byte: number) => {
