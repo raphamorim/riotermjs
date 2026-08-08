@@ -30,17 +30,17 @@ runs. `results.json` gets the full numbers.
 
 Apple Silicon, Chrome 143 headless, 2026-08. Medians; run your own.
 
-| metric | xterm.js (webgl) | rioterm (canvas) |
+| metric | xterm.js (webgl) | rioterm 0.0.5 (canvas) |
 | --- | --- | --- |
-| init | 34.9 ms | 22.5 ms |
-| plain throughput | 178 MB/s | 585 MB/s |
-| ansi throughput | 108 MB/s | 209 MB/s |
+| init | 41.1 ms | 21.6 ms |
+| plain throughput | 179 MB/s | 657 MB/s |
+| ansi throughput | 109 MB/s | 237 MB/s |
 | altscreen fps | 119.9 (display-capped) | 119.9 (display-capped) |
-| altscreen frame p95 | 9.3 ms | 8.5 ms |
-| scrollback frame p95 | 9.1 ms | 8.7 ms |
-| JS heap after plain 8MB | 32.6 MB | 4.4 MB |
+| altscreen frame p95 | 9.4 ms | 8.9 ms |
+| scrollback frame p95 | 9.1 ms | 8.9 ms |
+| JS heap after plain 8MB | 31.2 MB | 4.4 MB |
 
-Parser-only (Node, 32MB): plain 174 vs 1155 MB/s, ansi 107 vs 207 MB/s.
+Parser-only (Node, 32MB): plain 168 vs 1142 MB/s, ansi 100 vs 233 MB/s.
 
 ## Honest caveats
 
