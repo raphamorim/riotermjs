@@ -38,6 +38,9 @@ async function mountHero(): Promise<void> {
     fontFamily: TERM_FONT,
     fontSize: 14,
     autoFocus: false,
+    // WASIX bash writes bare LF (no PTY line discipline doing ONLCR);
+    // the v86 serial console is a real tty and sends CRLF itself.
+    convertEol: state.program === 'bash',
   });
   hero.terminal.onTitleChange((title) => {
     const el = document.getElementById('fig-title');

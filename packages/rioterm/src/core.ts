@@ -42,6 +42,12 @@ export interface TerminalOptions {
   /** Cell metrics in px; graphics protocols map pixels onto cells. */
   cellWidth?: number;
   cellHeight?: number;
+  /**
+   * Treat bare LF in write() as CRLF. For sources without a PTY line
+   * discipline doing ONLCR (WASI programs, raw pipes); leave off for
+   * real PTYs, which already send CRLF.
+   */
+  convertEol?: boolean;
 }
 
 export interface Selection {
@@ -99,6 +105,9 @@ export class Terminal {
   private cellBuf: Uint32Array;
   private encoder = new TextEncoder();
   private disposed = false;
+  private convertEol: boolean;
+  /** Last byte of the previous write, so CRLF split across chunks stays CRLF. */
+  private lastWritten = 0;
 
   readonly options: Required<TerminalOptions>;
 
@@ -119,7 +128,9 @@ export class Terminal {
     const cellWidth = options.cellWidth ?? 9;
     const cellHeight = options.cellHeight ?? 18;
     const scrollback = options.scrollback ?? 10_000;
-    this.options = { cols, rows, scrollback, cellWidth, cellHeight };
+    const convertEol = options.convertEol ?? false;
+    this.options = { cols, rows, scrollback, cellWidth, cellHeight, convertEol };
+    this.convertEol = convertEol;
 
     this.raw = new RioTerm(
       cols,
@@ -183,9 +194,34 @@ export class Terminal {
 
   /** Child/backend output to display (xterm.js write()). */
   write(data: string | Uint8Array): void {
-    const bytes = typeof data === 'string' ? this.encoder.encode(data) : data;
+    let bytes = typeof data === 'string' ? this.encoder.encode(data) : data;
+    if (this.convertEol && bytes.length > 0) {
+      bytes = this.withCrLf(bytes);
+    }
     this.raw.feed(bytes);
     this.updateListeners.emit();
+  }
+
+  /** Expand bare LF to CRLF, tracking CR across chunk boundaries. */
+  private withCrLf(bytes: Uint8Array): Uint8Array {
+    const chunkPrev = this.lastWritten;
+    let bare = 0;
+    let prev = chunkPrev;
+    for (const byte of bytes) {
+      if (byte === 0x0a && prev !== 0x0d) bare++;
+      prev = byte;
+    }
+    this.lastWritten = prev;
+    if (bare === 0) return bytes;
+    const out = new Uint8Array(bytes.length + bare);
+    let at = 0;
+    prev = chunkPrev;
+    for (const byte of bytes) {
+      if (byte === 0x0a && prev !== 0x0d) out[at++] = 0x0d;
+      out[at++] = byte;
+      prev = byte;
+    }
+    return out;
   }
 
   /** Send text to the backend as user input (reaches onData). */

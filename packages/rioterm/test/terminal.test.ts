@@ -134,6 +134,26 @@ describe('Terminal', () => {
     term.dispose();
   });
 
+  it('converts bare LF to CRLF when convertEol is set', () => {
+    const term = new Terminal({ cols: 20, rows: 6, convertEol: true });
+    term.write('one\ntwo\n');
+    expect(term.textRow(0)).toBe('one');
+    expect(term.textRow(1)).toBe('two');
+    // CRLF split across chunks must not double-convert.
+    term.write('three\r');
+    term.write('\nfour');
+    expect(term.textRow(2)).toBe('three');
+    expect(term.textRow(3)).toBe('four');
+    term.dispose();
+  });
+
+  it('leaves newlines alone without convertEol', () => {
+    const term = new Terminal({ cols: 20, rows: 6 });
+    term.write('a\nb');
+    expect(term.textRow(1)).toBe(' b');
+    term.dispose();
+  });
+
   it('dumps scrollback plus screen as plain text', () => {
     const term = new Terminal({ cols: 20, rows: 5 });
     term.write('one\r\ntwo\r\n');
