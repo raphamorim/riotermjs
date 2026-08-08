@@ -49,6 +49,15 @@ if (!existsSync(join(crate, 'Cargo.toml'))) {
   process.exit(1);
 }
 
+// rio pins its own toolchain via rust-toolchain.toml, so the wasm target
+// must be added to THAT toolchain, not whatever the environment default
+// is; running rustup inside the checkout resolves the pinned one.
+try {
+  run('rustup', ['target', 'add', 'wasm32-unknown-unknown'], { cwd: rio });
+} catch {
+  console.log('rustup not available; assuming the toolchain has wasm32-unknown-unknown');
+}
+
 const pkg = join(root, 'packages', 'rioterm');
 
 for (const [target, outName] of [
