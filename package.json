@@ -1,0 +1,15 @@
+{
+  "name": "rioterm-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "docs"
+  ],
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build": "npm run build -w rioterm && npm run build -w react-rioterm",
+    "test": "npm test -w rioterm",
+    "dev": "npm run dev -w docs",
+    "build:docs": "npm run build -w docs"
+  }
+}
