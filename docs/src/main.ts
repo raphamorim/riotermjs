@@ -60,7 +60,7 @@ async function doMountHero(): Promise<void> {
     if (!bash) {
       hero.terminal.write('\x1b[2mstarting bash (wasix)...\x1b[0m\r\n');
       bash = new BashSession();
-      void bash.start();
+      void bash.start(import.meta.env.BASE_URL);
     }
     bash.attach(hero.terminal);
   } else {

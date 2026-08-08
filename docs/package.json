@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs",
+    "predev": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs && node ../scripts/fetch-bash-webc.mjs",
     "dev": "vite",
-    "prebuild": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs",
+    "prebuild": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs && node ../scripts/fetch-bash-webc.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

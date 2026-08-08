@@ -20,13 +20,18 @@ export class BashSession {
     return typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
   }
 
-  async start(): Promise<void> {
+  async start(base: string): Promise<void> {
     if (this.started) return;
     this.started = true;
 
     const { init, Wasmer } = await import('@wasmer/sdk');
-    await init();
-    const pkg = await Wasmer.fromRegistry('sharrattj/bash');
+    // The package is self-hosted (scripts/fetch-bash-webc.mjs); loading it
+    // in parallel with the runtime init keeps cold starts short.
+    const [webc] = await Promise.all([
+      fetch(`${base}wasmer/bash.webc`).then((r) => r.arrayBuffer()),
+      init(),
+    ]);
+    const pkg = await Wasmer.fromFile(new Uint8Array(webc));
     const instance = await pkg.entrypoint!.run({
       env: { TERM: 'xterm-256color', HOME: '/home', PS1: '\\w $ ' },
     });
