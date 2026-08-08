@@ -193,6 +193,16 @@ describe('plain-text URL detection', () => {
     term.dispose();
   });
 
+  it('a pipe ends the URL', () => {
+    const term = makeTerminal({ cols: 60 });
+    term.write('curl https://x.dev|jq .');
+    const link = term.linkAt(0, 10);
+    expect(link?.uri).toBe('https://x.dev');
+    expect(link?.endCol).toBe(17);
+    expect(term.linkAt(0, 19)).toBeUndefined();
+    term.dispose();
+  });
+
   it('wrapped URLs resolve whole from any row', () => {
     const term = makeTerminal({ cols: 20 });
     term.write('x https://example.com/abcdef end');
