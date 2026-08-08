@@ -48,6 +48,11 @@ export interface TerminalOptions {
    * real PTYs, which already send CRLF.
    */
   convertEol?: boolean;
+  /**
+   * Detect plain-text URLs (https://..., mailto:, ...) under the pointer
+   * so linkAt() resolves them like OSC 8 links. Default true.
+   */
+  detectUrls?: boolean;
 }
 
 export interface Selection {
@@ -143,7 +148,8 @@ export class Terminal {
     const cellHeight = options.cellHeight ?? 18;
     const scrollback = options.scrollback ?? 10_000;
     const convertEol = options.convertEol ?? false;
-    this.options = { cols, rows, scrollback, cellWidth, cellHeight, convertEol };
+    const detectUrls = options.detectUrls ?? true;
+    this.options = { cols, rows, scrollback, cellWidth, cellHeight, convertEol, detectUrls };
     this.convertEol = convertEol;
 
     this.raw = new RioTerm(
@@ -414,15 +420,23 @@ export class Terminal {
   }
 
   /**
-   * The OSC 8 hyperlink under a viewport cell, with the row-run to
-   * underline on hover. Hit-test shaped: call it from pointer events.
+   * The link under a viewport cell, with the row-run to underline on
+   * hover: an OSC 8 hyperlink when the program emitted one, else a
+   * regex-detected plain-text URL (unless `detectUrls: false`). Wrapped
+   * URLs resolve whole. Hit-test shaped: call it from pointer events.
    */
   linkAt(line: number, col: number): { uri: string; startCol: number; endCol: number } | undefined {
     this.raw.update();
     const uri = this.raw.link_at(line, col);
-    if (uri === undefined) return undefined;
-    const run = this.raw.link_run(line, col);
-    return { uri, startCol: run[0] ?? col, endCol: run[1] ?? col };
+    if (uri !== undefined) {
+      const run = this.raw.link_run(line, col);
+      return { uri, startCol: run[0] ?? col, endCol: run[1] ?? col };
+    }
+    if (this.options.detectUrls === false) return undefined;
+    const url = this.raw.url_at(line, col);
+    if (url === undefined) return undefined;
+    const run = this.raw.url_run(line, col);
+    return { uri: url, startCol: run[0] ?? col, endCol: run[1] ?? col };
   }
 
   /** Plain text of one viewport row (testing/accessibility). */
