@@ -154,6 +154,27 @@ describe('Terminal', () => {
     term.dispose();
   });
 
+  it('brackets pastes when the program asks and reports modes', () => {
+    const term = new Terminal({ cols: 40, rows: 10 });
+    const out = collect(term);
+    expect(term.modes().bracketedPaste).toBe(false);
+    term.paste('plain\n');
+    expect(out.text()).toBe('plain\r');
+
+    out.data.length = 0;
+    term.write('\x1b[?2004h');
+    expect(term.modes().bracketedPaste).toBe(true);
+    term.paste('safe');
+    expect(out.text()).toBe('\x1b[200~safe\x1b[201~');
+
+    term.write('\x1b[?1000h\x1b[?1h\x1b[?1049h');
+    const modes = term.modes();
+    expect(modes.mouseTracking).toBe(true);
+    expect(modes.applicationCursorKeys).toBe(true);
+    expect(modes.altScreen).toBe(true);
+    term.dispose();
+  });
+
   it('dumps scrollback plus screen as plain text', () => {
     const term = new Terminal({ cols: 20, rows: 5 });
     term.write('one\r\ntwo\r\n');

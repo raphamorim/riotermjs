@@ -230,10 +230,32 @@ export class Terminal {
     this.updateListeners.emit();
   }
 
+  /**
+   * Paste text: newlines normalize to CR and the run is wrapped in
+   * bracketed-paste markers when the program enabled the mode.
+   */
   paste(text: string): void {
-    // librio strips nothing here; bracketed-paste wrapping is handled by
-    // the program via the terminal modes librio tracks internally.
-    this.input(text);
+    this.raw.paste(text);
+    this.updateListeners.emit();
+  }
+
+  /**
+   * Terminal modes an embedder needs for its own input decisions
+   * (touch scrolling, key bars, paste handling).
+   */
+  modes(): {
+    mouseTracking: boolean;
+    applicationCursorKeys: boolean;
+    altScreen: boolean;
+    bracketedPaste: boolean;
+  } {
+    const bits = this.raw.mode_bits();
+    return {
+      mouseTracking: (bits & 1) !== 0,
+      applicationCursorKeys: (bits & 2) !== 0,
+      altScreen: (bits & 4) !== 0,
+      bracketedPaste: (bits & 8) !== 0,
+    };
   }
 
   /**

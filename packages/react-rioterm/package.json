@@ -1,6 +1,6 @@
 {
   "name": "react-rioterm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "React component for rioterm: Rio's Rust terminal core in WebAssembly, rendered as DOM",
   "keywords": [
     "react",
@@ -29,7 +29,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "rioterm": "^0.0.2"
+    "rioterm": "^0.0.3"
   },
   "peerDependencies": {
     "react": ">=18"
