@@ -175,6 +175,20 @@ describe('Terminal', () => {
     term.dispose();
   });
 
+  it('resolves osc8 links with their hover runs', () => {
+    const term = new Terminal({ cols: 40, rows: 10 });
+    term.write('pre \x1b]8;;https://rioterm.com\x1b\\rio link\x1b]8;;\x1b\\ post');
+    term.snapshot();
+    expect(term.linkAt(0, 0)).toBeUndefined();
+    expect(term.linkAt(0, 6)).toEqual({
+      uri: 'https://rioterm.com',
+      startCol: 4,
+      endCol: 11,
+    });
+    expect(term.linkAt(0, 13)).toBeUndefined();
+    term.dispose();
+  });
+
   it('dumps scrollback plus screen as plain text', () => {
     const term = new Terminal({ cols: 20, rows: 5 });
     term.write('one\r\ntwo\r\n');

@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@wasmer/sdk": "^0.10.0",
-    "rioterm": "^0.0.3",
+    "rioterm": "^0.0.4",
     "v86": "^0.5.431"
   },
   "devDependencies": {

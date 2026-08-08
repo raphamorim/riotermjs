@@ -399,6 +399,18 @@ export class Terminal {
     return this.raw.display_offset();
   }
 
+  /**
+   * The OSC 8 hyperlink under a viewport cell, with the row-run to
+   * underline on hover. Hit-test shaped: call it from pointer events.
+   */
+  linkAt(line: number, col: number): { uri: string; startCol: number; endCol: number } | undefined {
+    this.raw.update();
+    const uri = this.raw.link_at(line, col);
+    if (uri === undefined) return undefined;
+    const run = this.raw.link_run(line, col);
+    return { uri, startCol: run[0] ?? col, endCol: run[1] ?? col };
+  }
+
   /** Plain text of one viewport row (testing/accessibility). */
   textRow(line: number): string {
     this.raw.update();

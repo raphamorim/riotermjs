@@ -40,6 +40,8 @@ export class DOMRenderer {
   private rowEls: HTMLElement[] = [];
   private prevCursorRow = -1;
   private prevSelRows: [number, number] | null = null;
+  private hoverLink: { line: number; startCol: number; endCol: number } | null = null;
+  private hoverDirtyRows = new Set<number>();
   private raf = 0;
   private sub: { dispose(): void };
 
@@ -110,6 +112,22 @@ export class DOMRenderer {
     });
   }
 
+  /** Underline the hovered OSC 8 link run (null clears it). */
+  setHoverLink(link: { line: number; startCol: number; endCol: number } | null): void {
+    const same =
+      link === this.hoverLink ||
+      (link !== null &&
+        this.hoverLink !== null &&
+        link.line === this.hoverLink.line &&
+        link.startCol === this.hoverLink.startCol &&
+        link.endCol === this.hoverLink.endCol);
+    if (same) return;
+    if (this.hoverLink) this.hoverDirtyRows.add(this.hoverLink.line);
+    if (link) this.hoverDirtyRows.add(link.line);
+    this.hoverLink = link;
+    this.schedule();
+  }
+
   fit(width: number, height: number): void {
     const cols = Math.max(2, Math.floor(width / this.cellWidth));
     const rows = Math.max(2, Math.floor(height / this.cellHeight));
@@ -159,10 +177,12 @@ export class DOMRenderer {
         snap.dirtyRows[i] ||
         i === this.prevCursorRow ||
         i === snap.cursorLine ||
+        this.hoverDirtyRows.has(i) ||
         (this.prevSelRows !== null && i >= this.prevSelRows[0] && i <= this.prevSelRows[1]) ||
         (selRows !== null && i >= selRows[0] && i <= selRows[1]);
       if (touched) this.buildRow(snap, i);
     }
+    this.hoverDirtyRows.clear();
     this.prevCursorRow = snap.cursorLine;
     this.prevSelRows = selRows;
 
@@ -216,6 +236,11 @@ export class DOMRenderer {
       const flags = snap.cells[idx + 3];
 
       const selected = this.inSelection(snap, row, col);
+      const hovered =
+        this.hoverLink !== null &&
+        this.hoverLink.line === row &&
+        col >= this.hoverLink.startCol &&
+        col <= this.hoverLink.endCol;
       const inverse = (flags & STYLE_INVERSE) !== 0;
       let fg = this.colors.resolve(snap.cells[idx + (inverse ? 2 : 1)], !inverse);
       let bg = this.colors.resolve(snap.cells[idx + (inverse ? 1 : 2)], inverse);
@@ -224,7 +249,7 @@ export class DOMRenderer {
         bg = this.theme.selectionBackground;
       }
 
-      const cellKey = `${fg}|${bg}|${flags}|${selected ? 1 : 0}`;
+      const cellKey = `${fg}|${bg}|${flags}|${selected ? 1 : 0}|${hovered ? 1 : 0}`;
       if (cellKey !== key) {
         flush();
         key = cellKey;
@@ -236,7 +261,7 @@ export class DOMRenderer {
         if (flags & STYLE_DIM) parts.push('opacity:0.6');
         if (flags & STYLE_HIDDEN) parts.push('visibility:hidden');
         const deco = [
-          flags & STYLE_ANY_UNDERLINE ? 'underline' : '',
+          flags & STYLE_ANY_UNDERLINE || hovered ? 'underline' : '',
           flags & STYLE_STRIKEOUT ? 'line-through' : '',
         ]
           .filter(Boolean)

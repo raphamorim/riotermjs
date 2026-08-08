@@ -6,6 +6,11 @@ import { CanvasRenderer, type CanvasRendererOptions } from './canvas.js';
 import { DOMRenderer } from './dom-renderer.js';
 import { handleKeyboardEvent, modsOf } from './keys.js';
 
+export interface LinkHandler {
+  /** Called when the user clicks an OSC 8 hyperlink. */
+  activate: (uri: string) => void;
+}
+
 export interface OpenOptions extends TerminalOptions, CanvasRendererOptions {
   /** How to paint the grid: GPU-friendly canvas (default) or DOM rows. */
   renderer?: 'canvas' | 'dom';
@@ -13,6 +18,12 @@ export interface OpenOptions extends TerminalOptions, CanvasRendererOptions {
   autoFocus?: boolean;
   /** Track the container size and refit the grid (default true). */
   fit?: boolean;
+  /**
+   * OSC 8 hyperlink activation. Defaults to a confirm() prompt followed
+   * by window.open with noopener; pass your own to route links through
+   * a bridge (Electron, mobile WebView) or to disable the prompt.
+   */
+  linkHandler?: LinkHandler;
 }
 
 export interface RioTermHandle {
@@ -105,13 +116,24 @@ export async function open(
     void navigator.clipboard?.writeText(text).catch(() => {});
   });
 
+  // OSC 8 hyperlink activation, default: confirm then open.
+  const activateLink =
+    options.linkHandler?.activate ??
+    ((uri: string) => {
+      if (window.confirm(`Open link?\n\n${uri}`)) {
+        window.open(uri, '_blank', 'noopener,noreferrer');
+      }
+    });
+
   // Mouse selection: click begins, drag extends, double/triple click
   // select word/line; a completed selection is copied when the platform
   // allows it (matching terminal muscle memory).
   let selecting = false;
+  let downAt: { x: number; y: number } | null = null;
   on(container, 'mousedown', (e) => {
     if (e.button !== 0) return;
     textarea.focus();
+    downAt = { x: e.clientX, y: e.clientY };
     const { col, row, sideRight } = renderer.cellAt(e.clientX, e.clientY);
     const kind = e.detail >= 3 ? 'line' : e.detail === 2 ? 'word' : e.altKey ? 'block' : 'simple';
     terminal.selectionBegin(row, col, kind, sideRight);
@@ -124,11 +146,36 @@ export async function open(
     const { col, row, sideRight } = renderer.cellAt(me.clientX, me.clientY);
     terminal.selectionUpdate(row, col, sideRight);
   });
-  on(window as unknown as HTMLElement, 'mouseup', () => {
+  on(window as unknown as HTMLElement, 'mouseup', (e) => {
     if (!selecting) return;
     selecting = false;
     const text = terminal.getSelection();
     if (text) void navigator.clipboard?.writeText(text).catch(() => {});
+
+    // A plain click (no drag) on an OSC 8 link activates it.
+    const me = e as MouseEvent;
+    if (downAt && Math.hypot(me.clientX - downAt.x, me.clientY - downAt.y) < 5) {
+      const { col, row } = renderer.cellAt(me.clientX, me.clientY);
+      const link = terminal.linkAt(row, col);
+      if (link) activateLink(link.uri);
+    }
+    downAt = null;
+  });
+
+  // OSC 8 hover: underline the run and show a pointer cursor.
+  let hoverCell: { row: number; col: number } | null = null;
+  on(container, 'mousemove', (e) => {
+    const { col, row } = renderer.cellAt(e.clientX, e.clientY);
+    if (hoverCell && hoverCell.row === row && hoverCell.col === col) return;
+    hoverCell = { row, col };
+    const link = terminal.linkAt(row, col);
+    renderer.setHoverLink(link ? { line: row, startCol: link.startCol, endCol: link.endCol } : null);
+    container.style.cursor = link ? 'pointer' : '';
+  });
+  on(container, 'mouseleave', () => {
+    hoverCell = null;
+    renderer.setHoverLink(null);
+    container.style.cursor = '';
   });
 
   on(

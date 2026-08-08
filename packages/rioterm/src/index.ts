@@ -40,4 +40,4 @@ export { DOMRenderer } from './dom-renderer.js';
 export type { DOMRendererOptions } from './dom-renderer.js';
 
 export { open } from './dom.js';
-export type { OpenOptions, RioTermHandle } from './dom.js';
+export type { OpenOptions, RioTermHandle, LinkHandler } from './dom.js';

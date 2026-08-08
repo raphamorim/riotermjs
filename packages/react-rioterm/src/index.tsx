@@ -32,13 +32,14 @@ export interface RioTerminalProps {
   autoFocus?: boolean;
   /** Track the container size and refit the grid (default true). */
   fit?: boolean;
+  /** OSC 8 hyperlink activation; defaults to confirm() + window.open. */
+  linkHandler?: { activate: (uri: string) => void };
   className?: string;
   style?: CSSProperties;
   /** Bytes for the backend (keystrokes, mouse reports, DA responses). */
   onData?: (data: Uint8Array) => void;
   onTitleChange?: (title: string, subtitle: string | null) => void;
   onBell?: () => void;
-  /** Called once the wasm module is up and the terminal exists. */
   onReady?: (terminal: Terminal) => void;
 }
 
@@ -81,6 +82,7 @@ export const RioTerminal = forwardRef<RioTerminalHandle, RioTerminalProps>(
         ...(props.fontSize !== undefined && { fontSize: props.fontSize }),
         ...(props.lineHeight !== undefined && { lineHeight: props.lineHeight }),
         ...(props.cursorStyle !== undefined && { cursorStyle: props.cursorStyle }),
+        ...(props.linkHandler !== undefined && { linkHandler: props.linkHandler }),
         autoFocus: props.autoFocus !== false,
         fit: props.fit,
       }).then((h) => {

@@ -42,6 +42,7 @@ export class CanvasRenderer {
   private baseline: number;
   private raf = 0;
   private sub: { dispose(): void };
+  private hoverLink: { line: number; startCol: number; endCol: number } | null = null;
 
   constructor(term: Terminal, options: CanvasRendererOptions = {}) {
     this.term = term;
@@ -110,6 +111,20 @@ export class CanvasRenderer {
     });
   }
 
+  /** Underline the hovered OSC 8 link run (null clears it). */
+  setHoverLink(link: { line: number; startCol: number; endCol: number } | null): void {
+    const same =
+      link === this.hoverLink ||
+      (link !== null &&
+        this.hoverLink !== null &&
+        link.line === this.hoverLink.line &&
+        link.startCol === this.hoverLink.startCol &&
+        link.endCol === this.hoverLink.endCol);
+    if (same) return;
+    this.hoverLink = link;
+    this.schedule();
+  }
+
   cellAt(clientX: number, clientY: number): { col: number; row: number; sideRight: boolean } {
     const rect = this.canvas.getBoundingClientRect();
     const x = clientX - rect.left;
@@ -141,6 +156,11 @@ export class CanvasRenderer {
 
     for (let row = 0; row < snap.rows; row++) {
       this.renderRow(snap, row, cw, ch);
+    }
+    if (this.hoverLink && this.hoverLink.line < snap.rows) {
+      const { line, startCol, endCol } = this.hoverLink;
+      ctx.fillStyle = this.opts.theme.foreground;
+      ctx.fillRect(startCol * cw, line * ch + ch - 2, (endCol - startCol + 1) * cw, 1);
     }
     this.renderCursor(snap, cw, ch);
   }
