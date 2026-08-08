@@ -171,6 +171,52 @@ describe('OSC 8 links', () => {
   });
 });
 
+describe('plain-text URL detection', () => {
+  it('resolves URLs under the pointer with run bounds', () => {
+    const term = makeTerminal();
+    term.write('docs at https://rio.dev, enjoy');
+    const link = term.linkAt(0, 12);
+    expect(link?.uri).toBe('https://rio.dev');
+    expect(link).toMatchObject({ startCol: 8, endCol: 22 });
+    // The comma is prose, and plain words never link.
+    expect(term.linkAt(0, 23)).toBeUndefined();
+    expect(term.linkAt(0, 0)).toBeUndefined();
+    term.dispose();
+  });
+
+  it('trims trailing prose punctuation and unbalanced parens', () => {
+    const term = makeTerminal({ cols: 60 });
+    term.write('(see http://a.b/c).');
+    expect(term.linkAt(0, 8)?.uri).toBe('http://a.b/c');
+    term.write('\r\nwiki https://x.y/z_(v2)');
+    expect(term.linkAt(1, 8)?.uri).toBe('https://x.y/z_(v2)');
+    term.dispose();
+  });
+
+  it('wrapped URLs resolve whole from any row', () => {
+    const term = makeTerminal({ cols: 20 });
+    term.write('x https://example.com/abcdef end');
+    expect(term.linkAt(1, 3)?.uri).toBe('https://example.com/abcdef');
+    expect(term.linkAt(1, 3)).toMatchObject({ startCol: 0, endCol: 7 });
+    expect(term.linkAt(0, 5)).toMatchObject({ startCol: 2, endCol: 19 });
+    term.dispose();
+  });
+
+  it('OSC 8 wins over detection', () => {
+    const term = makeTerminal();
+    term.write('\x1b]8;;https://real.dev\x1b\\https://shown.dev\x1b]8;;\x1b\\');
+    expect(term.linkAt(0, 3)?.uri).toBe('https://real.dev');
+    term.dispose();
+  });
+
+  it('detectUrls: false turns it off', () => {
+    const term = makeTerminal({ detectUrls: false });
+    term.write('https://rio.dev');
+    expect(term.linkAt(0, 2)).toBeUndefined();
+    term.dispose();
+  });
+});
+
 describe('snapshot contract', () => {
   it('dirty rows track writes and reset per snapshot', () => {
     const term = makeTerminal();
