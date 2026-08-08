@@ -110,4 +110,15 @@ describe('DOMRenderer', () => {
     renderer.dispose();
     term.dispose();
   });
+
+  it('fit() ignores a collapsed container instead of folding the grid', () => {
+    const term = makeTerminal({ cols: 10, rows: 4 });
+    const renderer = new DOMRenderer(term, { fontSize: 10, lineHeight: 1 });
+    renderer.fit(0, 0);
+    renderer.fit(renderer.cellWidth - 1, renderer.cellHeight * 7);
+    expect(term.options.cols).toBe(10);
+    expect(term.options.rows).toBe(4);
+    renderer.dispose();
+    term.dispose();
+  });
 });

@@ -129,6 +129,9 @@ export class DOMRenderer {
   }
 
   fit(width: number, height: number): void {
+    // A hidden or collapsed container (display: none, zero-sized tab)
+    // must not fold the grid down and churn a reflow; wait for space.
+    if (width < this.cellWidth || height < this.cellHeight) return;
     const cols = Math.max(2, Math.floor(width / this.cellWidth));
     const rows = Math.max(2, Math.floor(height / this.cellHeight));
     if (cols !== this.term.options.cols || rows !== this.term.options.rows) {
