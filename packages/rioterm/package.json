@@ -29,7 +29,8 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "node -e \"['dist/index.js','dist/index.d.ts','wasm/librio_wasm.js','wasm/librio_wasm_bg.wasm'].forEach(f=>require('node:fs').accessSync(f))\" || (echo 'refusing to pack without built dist/ and wasm/' && exit 1)"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
