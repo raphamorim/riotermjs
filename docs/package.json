@@ -1,0 +1,20 @@
+{
+  "name": "docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node ../scripts/fetch-linux-image.mjs",
+    "dev": "vite",
+    "prebuild": "node ../scripts/fetch-linux-image.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "rioterm": "^0.0.2",
+    "v86": "^0.5.431"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vite": "^7.3.4"
+  }
+}

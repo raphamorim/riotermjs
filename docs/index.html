@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>rioterm · terminal engine for the web</title>
+    <meta
+      name="description"
+      content="Rio's Rust terminal engine compiled to WebAssembly. Real VT semantics in the browser. It boots Linux."
+    />
+    <link
+      rel="preload"
+      href="fonts/cascadia-mono/CascadiaMono.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <style>
+      @font-face {
+        font-family: 'Cascadia Mono';
+        src: url(fonts/cascadia-mono/CascadiaMono.woff2) format('woff2');
+        font-weight: 200 700;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Cascadia Mono';
+        src: url(fonts/cascadia-mono/CascadiaMonoItalic.woff2) format('woff2');
+        font-weight: 200 700;
+        font-style: italic;
+        font-display: swap;
+      }
+      :root {
+        --paper: #e8e2d2;
+        --paper-hi: #f4efe1;
+        --ink: #16130f;
+        --ink-dim: #6f6857;
+        --orange: #ffa133;
+        --magenta: #fb43fe;
+        --cyan: #00dbe5;
+        --grad: linear-gradient(-120deg, #fb43fe 30%, #00dbe5);
+        --mono: 'Cascadia Mono', ui-monospace, Menlo, Consolas, monospace;
+        --code: 'Cascadia Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--ink);
+        background: var(--paper);
+        overflow: hidden;
+      }
+      ::selection {
+        background: var(--orange);
+        color: var(--ink);
+      }
+      a {
+        color: var(--ink);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        background: var(--ink);
+        color: var(--paper);
+        text-decoration: none;
+      }
+      .lbl {
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+
+      /* ------------------------------------------------------- split */
+      .split {
+        display: grid;
+        grid-template-columns: minmax(520px, 47%) 1fr;
+        height: 100dvh;
+      }
+
+      /* ---------------------------------------------- left: terminal */
+      .pane-term {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 22px;
+        border-right: 3px solid var(--ink);
+        min-width: 0;
+      }
+      .slab {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border: 3px solid var(--ink);
+        box-shadow: 8px 8px 0 var(--ink);
+        background: #0f0d0e;
+      }
+      .slab-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 9px 14px;
+        border-bottom: 3px solid var(--ink);
+        background: var(--paper-hi);
+        color: var(--ink);
+        font-size: 10.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .slab-bar .right {
+        margin-left: auto;
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .toggle {
+        display: inline-flex;
+        border: 1px solid var(--ink);
+        background: var(--paper);
+      }
+      .toggle button {
+        font-family: var(--mono);
+        background: none;
+        border: none;
+        color: var(--ink);
+        padding: 4px 12px;
+        font-size: 10.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      .toggle button + button {
+        border-left: 1px solid var(--ink);
+      }
+      .toggle button.active {
+        background: var(--ink);
+        color: var(--orange);
+      }
+      #hero-term {
+        flex: 1;
+        min-height: 0;
+      }
+      .slab-cap {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 8px 14px;
+        border-top: 3px solid var(--ink);
+        background: var(--paper-hi);
+        color: var(--ink-dim);
+        font-size: 10.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .slab-cap b {
+        font-weight: 400;
+        color: var(--ink);
+      }
+      .pane-term .note {
+        margin: 14px 2px 0;
+        color: var(--ink-dim);
+        font-size: 11.5px;
+      }
+      .pane-term .note kbd {
+        font-family: var(--code);
+        background: var(--paper-hi);
+        border: 1px solid var(--ink);
+        padding: 0 4px;
+        font-size: 10.5px;
+      }
+
+      /* ------------------------------------------------- right: info */
+      .pane-info {
+        overflow-y: auto;
+        min-width: 0;
+        scrollbar-color: var(--ink) var(--paper);
+      }
+      .pane-info > .inner {
+        max-width: 660px;
+        padding: 0 34px 72px;
+      }
+      .top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 22px;
+        align-items: baseline;
+        padding: 14px 0 12px;
+        border-bottom: 3px solid var(--ink);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .top .right {
+        margin-left: auto;
+        display: inline-flex;
+        gap: 16px;
+      }
+      .top .ver {
+        color: var(--ink-dim);
+      }
+
+      .hero {
+        position: relative;
+        padding: 44px 0 24px;
+        border-bottom: 1px solid var(--ink);
+      }
+      .hero h1 {
+        margin: 0;
+        font-weight: 400;
+        font-size: clamp(46px, 7vw, 92px);
+        line-height: 0.95;
+        letter-spacing: -0.02em;
+        /* rioterm.com's hero gradient, on the pixel wordmark. */
+        background: var(--grad);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        width: fit-content;
+      }
+      .hero h1 i {
+        font-style: normal;
+      }
+      .hero .sub {
+        margin: 22px 0 0;
+        max-width: 58ch;
+        font-size: 13.5px;
+      }
+      .hero .sub em {
+        font-style: normal;
+        background: var(--orange);
+        padding: 0 3px;
+      }
+      .cursor {
+        display: inline-block;
+        width: 0.55em;
+        height: 1em;
+        vertical-align: text-bottom;
+        background: var(--magenta);
+        animation: blink 1.1s steps(1) infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .stickers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .sticker {
+        background: var(--paper-hi);
+        border: 1px solid var(--ink);
+        box-shadow: 3px 3px 0 var(--ink);
+        padding: 3px 10px;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .sticker.orange {
+        background: var(--orange);
+      }
+      .sticker.grad {
+        background: var(--grad);
+        color: #fff;
+      }
+      .sticker:nth-child(1) {
+        transform: rotate(1.6deg);
+      }
+      .sticker:nth-child(2) {
+        transform: rotate(-1.4deg);
+      }
+      .sticker:nth-child(3) {
+        transform: rotate(0.8deg);
+      }
+
+      section {
+        margin-top: 56px;
+      }
+      .sec {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .sec .no {
+        color: var(--magenta);
+        font-size: 12px;
+      }
+      .sec h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 400;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .sec .fill {
+        flex: 1;
+        border-bottom: 1px solid var(--ink);
+        transform: translateY(-5px);
+      }
+
+      .install {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--ink);
+        color: var(--orange);
+        padding: 14px 16px;
+        font-size: clamp(13px, 1.6vw, 17px);
+      }
+      .install + .install {
+        margin-top: 8px;
+      }
+      .install .dollar {
+        color: var(--cyan);
+        user-select: none;
+      }
+      .install button {
+        font-family: var(--mono);
+        margin-left: auto;
+        background: none;
+        border: 1px solid var(--orange);
+        color: var(--orange);
+        padding: 3px 12px;
+        font-size: 10.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      .install button:hover {
+        background: var(--orange);
+        color: var(--ink);
+      }
+
+      .docs-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: var(--ink);
+        color: var(--paper);
+        text-decoration: none;
+        padding: 16px 18px;
+        font-size: clamp(13px, 1.6vw, 17px);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .docs-btn:hover {
+        background: var(--grad);
+        color: #fff;
+      }
+      .codecap {
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin: 8px 0 22px;
+      }
+
+      footer {
+        margin-top: 64px;
+        border-top: 3px solid var(--ink);
+        padding-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 24px;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      footer .end {
+        margin-left: auto;
+        color: var(--ink);
+      }
+
+      /* ------------------------------------------- mobile: info only */
+      @media (max-width: 980px) {
+        body {
+          overflow: auto;
+        }
+        .split {
+          display: block;
+          height: auto;
+        }
+        .pane-term {
+          display: none;
+        }
+        .pane-info {
+          overflow: visible;
+        }
+        .pane-info > .inner {
+          max-width: none;
+          padding: 0 20px 64px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="split">
+      <aside class="pane-term">
+        <div class="slab">
+          <div class="slab-bar">
+            <span>rio terminal emulator</span>
+            <span class="right">
+              <span>renderer</span>
+              <span class="toggle" id="renderer-toggle">
+                <button data-value="canvas" class="active">canvas</button>
+                <button data-value="dom">dom</button>
+              </span>
+            </span>
+          </div>
+          <div id="hero-term"></div>
+          <div class="slab-cap">
+            <span>fig. 1 · <b id="fig-title">rio terminal emulator</b></span>
+            <span id="fig-status">librio wasm + v86 · canvas</span>
+          </div>
+        </div>
+        <p class="note">
+          A real kernel, booted by <a href="https://github.com/copy/v86">v86</a>'s
+          x86-to-wasm JIT, serial console wired to rioterm, librio parsing every
+          byte in wasm, client-side only. Log in, run <kbd>vim</kbd> or
+          <kbd>top</kbd>, select text with the mouse, flip the renderer mid-session.
+        </p>
+      </aside>
+
+      <div class="pane-info">
+        <div class="inner">
+          <div class="top">
+            <span>terminal engine for the web</span>
+            <span class="right">
+              <span class="ver">v0.0.2 · mit</span>
+              <a href="https://github.com/raphamorim/riotermjs">github</a>
+              <a href="https://www.npmjs.com/package/rioterm">npm</a>
+            </span>
+          </div>
+
+          <div class="hero">
+            <h1>rioterm<i>_</i></h1>
+            <p class="sub">
+              <a href="https://rioterm.com">Rio</a>'s Rust terminal engine, compiled
+              to WebAssembly. Not a JavaScript reimplementation of a terminal:
+              <em>the same VT core the desktop app ships</em>, parsing your bytes in
+              the browser. On a desktop screen, it is booting Linux on the
+              left.<span class="cursor"></span>
+            </p>
+            <div class="stickers" aria-hidden="true">
+              <span class="sticker grad">wasm32 inside</span>
+              <span class="sticker orange">boots linux</span>
+              <span class="sticker">22°54′s 43°12′w</span>
+            </div>
+          </div>
+
+          <section id="install">
+            <div class="sec">
+              <span class="no">01</span>
+              <h2 data-flap="Install"></h2>
+              <div class="fill"></div>
+            </div>
+            <div class="install">
+              <span class="dollar">$</span>
+              <span>npm i rioterm --save</span>
+              <button data-copy="npm i rioterm --save">copy</button>
+            </div>
+            <div class="install">
+              <span class="dollar">$</span>
+              <span>npm i react-rioterm --save</span>
+              <button data-copy="npm i react-rioterm --save">copy</button>
+            </div>
+          </section>
+
+          <section id="docs">
+            <div class="sec">
+              <span class="no">02</span>
+              <h2 data-flap="Docs"></h2>
+              <div class="fill"></div>
+            </div>
+            <a class="docs-btn" href="https://github.com/raphamorim/riotermjs#readme">
+              read the docs <span aria-hidden="true">→</span>
+            </a>
+            <p class="codecap" style="margin-top: 10px">
+              integration, protocols, headless mode, react component. all in the readme
+            </p>
+          </section>
+
+          <footer>
+            <span>built on <a href="https://github.com/raphamorim/rio">rio</a></span>
+            <span><a href="https://www.npmjs.com/package/react-rioterm">npm/react-rioterm</a></span>
+            <span>
+              typeset in
+              <a href="https://github.com/microsoft/cascadia-code">cascadia mono</a>
+              (ofl)
+            </span>
+            <span class="end">■ eof</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
