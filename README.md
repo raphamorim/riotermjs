@@ -2,14 +2,14 @@
 
 [Rio](https://github.com/raphamorim/rio)'s Rust terminal core (librio),
 compiled to WebAssembly and packaged for the web.
-Live demo: https://raphamorim.github.io/riotermjs/ — it boots Linux.
+Live demo: https://raphamorim.github.io/riotermjs/ (it boots Linux).
 
-- **[`rioterm`](packages/rioterm)** — the core npm package: headless
+- **[`rioterm`](packages/rioterm)**: the core npm package, a headless
   `Terminal` (feed bytes in, get backend bytes out, pull grid snapshots)
   plus two renderers, canvas and DOM, selectable per instance.
-- **[`react-rioterm`](packages/react-rioterm)** — `<RioTerminal />`, a thin
+- **[`react-rioterm`](packages/react-rioterm)**: `<RioTerminal />`, a thin
   React wrapper with the same renderer choice.
-- **[`docs/`](docs)** — the landing page and live demo
+- **[`docs/`](docs)**: the landing page and live demo
   (GitHub Pages), which doubles as the dev testbed.
 
 ## Install
@@ -36,12 +36,12 @@ socket.onmessage = (e) => terminal.write(new Uint8Array(e.data));
 ```
 
 There is no PTY in a browser: the host owns the transport. A real shell
-over WebSocket looks like this — the demo site plugs
+over WebSocket looks like this; the demo site plugs
 [v86](https://github.com/copy/v86)'s serial port into the same two lines
 instead of a socket:
 
 ```js
-// server: any PTY owner — node-pty + ws shown
+// server: any PTY owner, node-pty + ws shown
 pty.onData((data) => ws.send(data));
 ws.on('message', (bytes) => pty.write(bytes));
 
@@ -76,7 +76,7 @@ import { RioTerminal } from 'react-rioterm';
 | `ESC]0;` | window titles |
 | `ESC]9;4` | progress reports |
 
-Selection is the engine's own model — simple, word, line, block —
+Selection is the engine's own model (simple, word, line, block),
 painted by the renderer and copied on mouseup or cmd/ctrl+shift+c: no
 fake DOM selection over a bitmap. Scrollback, dirty-row tracking, and
 plain-text dumps come from librio's pulled render state.
