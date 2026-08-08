@@ -1,0 +1,45 @@
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install wasm-pack
+        run: npm i -g wasm-pack
+
+      - name: Build wasm from pinned rio rev
+        run: node scripts/build-wasm.mjs
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      - name: Publish rioterm
+        run: npm publish --provenance --access public -w rioterm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish react-rioterm
+        run: npm publish --provenance --access public -w react-rioterm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
