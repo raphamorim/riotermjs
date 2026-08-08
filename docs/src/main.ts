@@ -1,19 +1,28 @@
 import { open, type RioTermHandle } from 'rioterm';
 import { unscramble } from './unscramble.js';
 import type { LinuxSession } from './linux-vm.js';
+import { BashSession } from './wasmer-shell.js';
 
 type Renderer = 'canvas' | 'dom';
+type Program = 'bash' | 'linux';
 
 export const TERM_FONT = '"Cascadia Mono", ui-monospace, Menlo, Consolas, monospace';
 
-const state: { renderer: Renderer } = { renderer: 'canvas' };
+// bash (wasix) needs SharedArrayBuffer; without cross-origin isolation
+// (plain GitHub Pages) only the linux snapshot runs.
+const bashAvailable = BashSession.supported();
+
+const state: { renderer: Renderer; program: Program } = {
+  renderer: 'canvas',
+  program: bashAvailable ? 'bash' : 'linux',
+};
 
 let hero: RioTermHandle | undefined;
 let linux: LinuxSession | undefined;
+let bash: BashSession | undefined;
 
 // The terminal pane only exists on desktop; on narrow screens it is
-// display:none and the VM never boots (no point downloading a kernel a
-// hidden pane would run).
+// display:none and no session ever starts.
 const desktop = window.matchMedia('(min-width: 981px)');
 
 async function mountHero(): Promise<void> {
@@ -22,6 +31,7 @@ async function mountHero(): Promise<void> {
   await document.fonts.load('14px "Cascadia Mono"').catch(() => {});
   hero?.dispose();
   linux?.detach();
+  bash?.detach();
   hero = await open(document.getElementById('hero-term')!, {
     renderer: state.renderer,
     scrollback: 2000,
@@ -34,15 +44,22 @@ async function mountHero(): Promise<void> {
     if (el) el.textContent = title || 'rio terminal emulator';
   });
 
-  if (!linux) {
-    hero.terminal.write(
-      '\x1b[2mfetching kernel image (~10MB) and booting linux via v86...\x1b[0m\r\n\r\n',
-    );
-    // v86 and its wasm load after first paint.
-    const { LinuxSession } = await import('./linux-vm.js');
-    linux = new LinuxSession(import.meta.env.BASE_URL);
+  if (state.program === 'bash') {
+    if (!bash) {
+      hero.terminal.write('\x1b[2mstarting bash (wasix)...\x1b[0m\r\n');
+      bash = new BashSession();
+      void bash.start();
+    }
+    bash.attach(hero.terminal);
+  } else {
+    if (!linux) {
+      hero.terminal.write('\x1b[2mrestoring linux snapshot...\x1b[0m\r\n');
+      // v86 and its wasm load after first paint.
+      const { LinuxSession } = await import('./linux-vm.js');
+      linux = new LinuxSession(import.meta.env.BASE_URL);
+    }
+    linux.attach(hero.terminal);
   }
-  linux.attach(hero.terminal);
   updateStatus();
 }
 
@@ -50,20 +67,42 @@ function updateStatus(): void {
   const el = document.getElementById('fig-status');
   if (!el || !hero) return;
   const { cols, rows } = hero.terminal.options;
-  el.textContent = `librio wasm + v86 · ${state.renderer} · ${cols}x${rows}`;
+  const engine = state.program === 'bash' ? 'librio wasm + wasix' : 'librio wasm + v86';
+  el.textContent = `${engine} · ${state.renderer} · ${cols}x${rows}`;
 }
 
 setInterval(updateStatus, 2000);
 
-document.getElementById('renderer-toggle')!.addEventListener('click', (e) => {
-  const button = (e.target as HTMLElement).closest('button');
-  if (!button || button.classList.contains('active')) return;
-  for (const b of button.parentElement!.querySelectorAll('button')) {
-    b.classList.toggle('active', b === button);
-  }
-  state.renderer = button.dataset.value as Renderer;
+function wireToggle(id: string, apply: (value: string) => void): void {
+  document.getElementById(id)!.addEventListener('click', (e) => {
+    const button = (e.target as HTMLElement).closest('button');
+    if (!button || button.disabled || button.classList.contains('active')) return;
+    for (const b of button.parentElement!.querySelectorAll('button')) {
+      b.classList.toggle('active', b === button);
+    }
+    apply(button.dataset.value!);
+  });
+}
+
+wireToggle('program-toggle', (value) => {
+  state.program = value as Program;
   void mountHero().then(() => hero?.focus());
 });
+
+wireToggle('renderer-toggle', (value) => {
+  state.renderer = value as Renderer;
+  void mountHero().then(() => hero?.focus());
+});
+
+if (!bashAvailable) {
+  const toggle = document.getElementById('program-toggle')!;
+  const bashButton = toggle.querySelector<HTMLButtonElement>('[data-value="bash"]')!;
+  const linuxButton = toggle.querySelector<HTMLButtonElement>('[data-value="linux"]')!;
+  bashButton.disabled = true;
+  bashButton.classList.remove('active');
+  bashButton.title = 'needs cross-origin isolation (COOP/COEP headers)';
+  linuxButton.classList.add('active');
+}
 
 for (const button of document.querySelectorAll<HTMLElement>('[data-copy]')) {
   button.addEventListener('click', () => {

@@ -145,6 +145,10 @@
         background: var(--ink);
         color: var(--orange);
       }
+      .toggle button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
       #hero-term {
         flex: 1;
         min-height: 0;
@@ -414,6 +418,11 @@
           <div class="slab-bar">
             <span>rio terminal emulator</span>
             <span class="right">
+              <span>program</span>
+              <span class="toggle" id="program-toggle">
+                <button data-value="bash" class="active">bash</button>
+                <button data-value="linux">linux</button>
+              </span>
               <span>renderer</span>
               <span class="toggle" id="renderer-toggle">
                 <button data-value="canvas" class="active">canvas</button>
@@ -428,10 +437,12 @@
           </div>
         </div>
         <p class="note">
-          A real kernel, booted by <a href="https://github.com/copy/v86">v86</a>'s
-          x86-to-wasm JIT, serial console wired to rioterm, librio parsing every
-          byte in wasm, client-side only. Log in, run <kbd>vim</kbd> or
-          <kbd>top</kbd>, select text with the mouse, flip the renderer mid-session.
+          Everything here is client-side. <kbd>bash</kbd> is the real thing,
+          running under <a href="https://wasmer.io/">wasix</a>;
+          <kbd>linux</kbd> restores a pre-booted
+          <a href="https://github.com/copy/v86">v86</a> snapshot with its serial
+          console wired to rioterm. Try <kbd>vim</kbd> or <kbd>top</kbd> in linux,
+          select text with the mouse, flip the renderer mid-session.
         </p>
       </aside>
 

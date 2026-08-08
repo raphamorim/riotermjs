@@ -3,13 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node ../scripts/fetch-linux-image.mjs",
+    "predev": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs",
     "dev": "vite",
-    "prebuild": "node ../scripts/fetch-linux-image.mjs",
+    "prebuild": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@wasmer/sdk": "^0.10.0",
     "rioterm": "^0.0.2",
     "v86": "^0.5.431"
   },
