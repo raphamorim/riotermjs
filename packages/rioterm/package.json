@@ -1,0 +1,40 @@
+{
+  "name": "rioterm",
+  "version": "0.0.2",
+  "description": "Rio terminal for the web: the Rust VT core (librio) compiled to WebAssembly, with a canvas renderer and a headless API",
+  "keywords": [
+    "terminal",
+    "rio",
+    "vt100",
+    "xterm",
+    "wasm",
+    "webassembly"
+  ],
+  "license": "MIT",
+  "repository": "github:raphamorim/riotermjs",
+  "homepage": "https://raphamorim.github.io/riotermjs/",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "wasm"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
