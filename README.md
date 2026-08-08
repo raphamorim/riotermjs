@@ -85,6 +85,14 @@ Rendering is canvas or DOM per instance, same input and selection
 behavior either way. The headless `Terminal` class runs without any DOM
 at all: packed grid snapshots for your own renderer, or Node for tests.
 
+`serialize()` dumps the whole buffer (styles, links, scrollback) as a VT
+stream a fresh terminal replays for reconnect flows, and
+`search()`/`findNext()`/`findPrevious()` run regex search over the
+buffer with selection and scroll-into-view. Coming from xterm.js? See
+[MIGRATING-FROM-XTERM.md](MIGRATING-FROM-XTERM.md) for the API and addon
+mapping, and [ACCESSIBILITY.md](ACCESSIBILITY.md) for why the DOM
+renderer is the accessible path.
+
 ## Building
 
 The wasm binary is built from the Rio source tree by
