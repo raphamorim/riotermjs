@@ -72,6 +72,18 @@ export interface Snapshot {
   dirtyRows: boolean[];
 }
 
+/**
+ * One search hit. Lines are buffer coordinates: 0 is the top of the
+ * scrollback, `historySize()` is the first viewport row of the live
+ * screen. `endCol` is inclusive.
+ */
+export interface SearchMatch {
+  startLine: number;
+  startCol: number;
+  endLine: number;
+  endCol: number;
+}
+
 export type Disposable = { dispose(): void };
 
 let wasmReady: Promise<void> | undefined;
@@ -106,6 +118,8 @@ export class Terminal {
   private encoder = new TextEncoder();
   private disposed = false;
   private convertEol: boolean;
+  private searchPattern: string | undefined;
+  private searchIndex = 0;
   /** Last byte of the previous write, so CRLF split across chunks stays CRLF. */
   private lastWritten = 0;
 
@@ -420,6 +434,81 @@ export class Terminal {
   /** Whole buffer (scrollback + screen) as plain text. */
   dump(): string {
     return this.raw.dump();
+  }
+
+  /**
+   * Whole buffer as a VT byte stream that reproduces content, styling,
+   * and OSC 8 links when written into a fresh same-width terminal:
+   * `replica.write(term.serialize())`. The reconnect/persistence story.
+   */
+  serialize(): string {
+    return this.raw.serialize();
+  }
+
+  /** Lines currently held in scrollback (tops out at the ring size). */
+  historySize(): number {
+    return this.raw.history_lines();
+  }
+
+  /**
+   * All regex matches over scrollback + screen, top to bottom, in
+   * buffer coordinates. An invalid pattern matches nothing.
+   */
+  search(pattern: string, max = 1000): SearchMatch[] {
+    const flat = this.raw.search(pattern, max);
+    const matches: SearchMatch[] = [];
+    for (let i = 0; i + 3 < flat.length; i += 4) {
+      matches.push({
+        startLine: flat[i],
+        startCol: flat[i + 1],
+        endLine: flat[i + 2],
+        endCol: flat[i + 3],
+      });
+    }
+    return matches;
+  }
+
+  /** Select the next match and scroll it into view. Wraps around. */
+  findNext(pattern: string): SearchMatch | undefined {
+    return this.findStep(pattern, 1);
+  }
+
+  /** Select the previous match and scroll it into view. Wraps around. */
+  findPrevious(pattern: string): SearchMatch | undefined {
+    return this.findStep(pattern, -1);
+  }
+
+  private findStep(pattern: string, dir: 1 | -1): SearchMatch | undefined {
+    const matches = this.search(pattern);
+    if (matches.length === 0) {
+      this.searchPattern = undefined;
+      return undefined;
+    }
+    if (pattern === this.searchPattern) {
+      this.searchIndex =
+        (this.searchIndex + dir + matches.length) % matches.length;
+    } else {
+      this.searchPattern = pattern;
+      this.searchIndex = dir === 1 ? 0 : matches.length - 1;
+    }
+    const match = matches[Math.min(this.searchIndex, matches.length - 1)];
+
+    // Scroll the match into view (centered) if it isn't visible, then
+    // select it so renderers highlight it.
+    this.raw.update();
+    const rows = this.raw.lines();
+    const history = this.raw.history_lines();
+    const offset = this.raw.display_offset();
+    const gridLine = match.startLine - history;
+    let target = offset;
+    const viewportLine = gridLine + offset;
+    if (viewportLine < 0 || viewportLine >= rows) {
+      target = Math.min(Math.max(Math.floor(rows / 2) - gridLine, 0), history);
+      this.scrollLines(target - offset);
+    }
+    this.selectionBegin(match.startLine - history + target, match.startCol);
+    this.selectionUpdate(match.endLine - history + target, match.endCol, true);
+    return match;
   }
 
   setAltIsMeta(enabled: boolean): void {

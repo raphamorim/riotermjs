@@ -25,6 +25,7 @@ export type {
   TerminalOptions,
   Snapshot,
   Selection,
+  SearchMatch,
   Disposable,
 } from './core.js';
 
