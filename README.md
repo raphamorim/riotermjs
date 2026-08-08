@@ -88,7 +88,10 @@ at all: packed grid snapshots for your own renderer, or Node for tests.
 `serialize()` dumps the whole buffer (styles, links, scrollback) as a VT
 stream a fresh terminal replays for reconnect flows, and
 `search()`/`findNext()`/`findPrevious()` run regex search over the
-buffer with selection and scroll-into-view. Coming from xterm.js? See
+buffer with selection and scroll-into-view. Links work both ways: OSC 8
+hyperlinks and detected plain-text URLs (wrapped URLs resolve whole),
+hover-underlined and click-activated through `linkHandler`; opt out with
+`detectUrls: false`. Coming from xterm.js? See
 [MIGRATING-FROM-XTERM.md](MIGRATING-FROM-XTERM.md) for the API and addon
 mapping, and [ACCESSIBILITY.md](ACCESSIBILITY.md) for why the DOM
 renderer is the accessible path.

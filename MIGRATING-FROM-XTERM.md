@@ -90,7 +90,7 @@ Options that carry over by name: `cols`, `rows`, `scrollback`, `fontSize`,
 | DOM renderer fallback | `renderer: 'dom'` (a first-class choice here, not a fallback; see [ACCESSIBILITY.md](ACCESSIBILITY.md)) |
 | `@xterm/addon-serialize` | `terminal.serialize()` returns a VT stream with styles, links, and scrollback; replay with `write()` into a same-width terminal |
 | `@xterm/addon-search` | `terminal.search(pattern)`, `terminal.findNext(pattern)`, `terminal.findPrevious(pattern)` |
-| `@xterm/addon-web-links` | OSC 8 hyperlinks are built in: hover underline plus click activation, routed through the `linkHandler` option. Plain-text URL autodetection is not built in yet; `textRow()` gives you the text to scan if you need it today |
+| `@xterm/addon-web-links` | built in: OSC 8 hyperlinks plus plain-text URL detection (`https://`, `mailto:`, and friends; wrapped URLs resolve whole, trailing prose punctuation excluded), both with hover underline and click activation through `linkHandler`. Disable detection with `detectUrls: false` |
 | `@xterm/addon-clipboard` | OSC 52 is built in: `terminal.onClipboardWrite(fn)` |
 | `@xterm/addon-attach` | two lines: `terminal.onData((b) => ws.send(b))` and `ws.onmessage = (e) => terminal.write(new Uint8Array(e.data))` |
 | `@xterm/addon-unicode11` | built in (wide chars, zero-width joiners handled by the Rust grid) |
