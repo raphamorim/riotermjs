@@ -114,4 +114,11 @@ rio.rev                  pinned rio revision
 
 ## License
 
-MIT
+MIT.
+
+The live demo additionally serves third-party binaries fetched at build
+time: a Linux image built with [Buildroot](https://buildroot.org/)
+(GPL; sources available there and via
+[v86's image tooling](https://github.com/copy/v86/tree/master/tools/docker)),
+[SeaBIOS](https://www.seabios.org/) (LGPL), and the
+[sharrattj/bash](https://wasmer.io/sharrattj/bash) WASIX package.
