@@ -189,7 +189,7 @@ export class DOMRenderer {
     this.prevCursorRow = snap.cursorLine;
     this.prevSelRows = selRows;
 
-    if (snap.displayOffset === 0) {
+    if (snap.cursorVisible && snap.displayOffset === 0) {
       this.cursorEl.style.display = '';
       this.cursorEl.style.left = `${snap.cursorCol * this.cellWidth}px`;
       this.cursorEl.style.top = `${snap.cursorLine * this.cellHeight}px`;

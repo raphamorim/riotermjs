@@ -195,6 +195,28 @@ describe('alternate screen', () => {
   });
 });
 
+describe('cursor visibility', () => {
+  it('DECTCEM hides and shows the cursor in the snapshot', () => {
+    const term = makeTerminal();
+    expect(term.snapshot().cursorVisible).toBe(true);
+    term.write('\x1b[?25l');
+    expect(term.snapshot().cursorVisible).toBe(false);
+    term.write('\x1b[?25h');
+    expect(term.snapshot().cursorVisible).toBe(true);
+    term.dispose();
+  });
+
+  it('a scrolled viewport reports the cursor hidden', () => {
+    const term = makeTerminal({ rows: 5 });
+    for (let i = 0; i < 20; i++) term.write(`l${i}\r\n`);
+    term.scrollLines(3);
+    expect(term.snapshot().cursorVisible).toBe(false);
+    term.scrollLines(-100);
+    expect(term.snapshot().cursorVisible).toBe(true);
+    term.dispose();
+  });
+});
+
 describe('reset and resize', () => {
   it('RIS returns to a default grid', () => {
     const term = makeTerminal();

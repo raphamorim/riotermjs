@@ -111,6 +111,23 @@ describe('DOMRenderer', () => {
     term.dispose();
   });
 
+  it('does not paint the cursor while DECTCEM hides it', () => {
+    const term = makeTerminal({ cols: 20, rows: 2 });
+    const renderer = new DOMRenderer(term);
+    term.write('ready');
+    renderNow(renderer);
+    const cursor = renderer.element.children[1] as HTMLElement;
+    expect(cursor.style.display).not.toBe('none');
+    term.write('\x1b[?25l');
+    renderNow(renderer);
+    expect(cursor.style.display).toBe('none');
+    term.write('\x1b[?25h');
+    renderNow(renderer);
+    expect(cursor.style.display).not.toBe('none');
+    renderer.dispose();
+    term.dispose();
+  });
+
   it('fit() ignores a collapsed container instead of folding the grid', () => {
     const term = makeTerminal({ cols: 10, rows: 4 });
     const renderer = new DOMRenderer(term, { fontSize: 10, lineHeight: 1 });

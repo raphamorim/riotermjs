@@ -70,6 +70,8 @@ export interface Snapshot {
   cells: Uint32Array;
   cursorLine: number;
   cursorCol: number;
+  /** False when the program hid the cursor (CSI ?25l); don't paint it. */
+  cursorVisible: boolean;
   displayOffset: number;
   altScreen: boolean;
   selection: Selection | null;
@@ -406,6 +408,7 @@ export class Terminal {
       cells: this.cellBuf,
       cursorLine: this.raw.cursor_line(),
       cursorCol: this.raw.cursor_col(),
+      cursorVisible: this.raw.cursor_visible(),
       displayOffset: this.raw.display_offset(),
       altScreen: this.raw.alt_screen(),
       selection,

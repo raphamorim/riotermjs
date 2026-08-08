@@ -246,7 +246,7 @@ export class CanvasRenderer {
   }
 
   private renderCursor(snap: Snapshot, cw: number, ch: number): void {
-    if (snap.displayOffset !== 0) return;
+    if (!snap.cursorVisible || snap.displayOffset !== 0) return;
     const ctx = this.ctx;
     const x = snap.cursorCol * cw;
     const y = snap.cursorLine * ch;
