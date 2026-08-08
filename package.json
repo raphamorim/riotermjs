@@ -10,6 +10,7 @@
     "build": "npm run build -w rioterm && npm run build -w react-rioterm",
     "test": "npm test -w rioterm",
     "dev": "npm run dev -w docs",
-    "build:docs": "npm run build -w docs"
+    "build:docs": "npm run build -w docs",
+    "deploy:cf": "PAGES_BASE=/ npm run build -w docs && npx wrangler pages deploy docs/dist --project-name riotermjs"
   }
 }
