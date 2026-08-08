@@ -25,7 +25,16 @@ let bash: BashSession | undefined;
 // display:none and no session ever starts.
 const desktop = window.matchMedia('(min-width: 981px)');
 
-async function mountHero(): Promise<void> {
+// Mounting is async (font load, wasm init); a toggle clicked mid-mount
+// must not race the mount already in flight, so calls are serialized.
+let mountQueue: Promise<void> = Promise.resolve();
+
+function mountHero(): Promise<void> {
+  mountQueue = mountQueue.then(doMountHero, doMountHero);
+  return mountQueue;
+}
+
+async function doMountHero(): Promise<void> {
   // The canvas renderer measures cell metrics at mount; the font must be
   // resident first or every cell inherits fallback-font widths.
   await document.fonts.load('14px "Cascadia Mono"').catch(() => {});
