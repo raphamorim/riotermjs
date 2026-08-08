@@ -1,0 +1,22 @@
+{
+  "name": "rioterm-benchmark",
+  "private": true,
+  "type": "module",
+  "description": "Deep benchmark: rioterm vs xterm.js on identical workloads",
+  "scripts": {
+    "bench": "node run.mjs",
+    "bench:parse": "node node-parse.mjs",
+    "dev": "vite --port 4499"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/headless": "^6.0.0",
+    "@xterm/xterm": "^6.0.0",
+    "rioterm": "file:../packages/rioterm"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.58.2",
+    "vite": "^7.3.4"
+  }
+}
