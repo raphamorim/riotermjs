@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import xtermHeadless from '@xterm/headless';
 const { Terminal: XtermHeadless } = xtermHeadless;
 import { Terminal as RioTerminal, initWasm } from 'rioterm';
+import { WasmBridge } from '@wterm/core';
 import { plainChunks, ansiChunks } from './src/workloads.mjs';
 
 const COLS = 120;
@@ -38,6 +39,15 @@ function riotermRun(chunks) {
   return ms;
 }
 
+async function wtermRun(chunks) {
+  const bridge = await WasmBridge.load();
+  bridge.init(COLS, ROWS);
+  const start = performance.now();
+  for (const chunk of chunks) bridge.writeRaw(chunk);
+  const ms = performance.now() - start;
+  return ms;
+}
+
 const mbs = (ms, bytes) => (bytes / 1024 / 1024 / (ms / 1000)).toFixed(0);
 
 for (const [name, maker] of [
@@ -48,9 +58,11 @@ for (const [name, maker] of [
   // Warmup + best-of-3.
   await xtermRun(chunks);
   riotermRun(chunks);
+  await wtermRun(chunks);
   const x = Math.min(await xtermRun(chunks), await xtermRun(chunks), await xtermRun(chunks));
   const r = Math.min(riotermRun(chunks), riotermRun(chunks), riotermRun(chunks));
+  const w = Math.min(await wtermRun(chunks), await wtermRun(chunks), await wtermRun(chunks));
   console.log(
-    `${name.padEnd(6)} ${(bytes / 1024 / 1024).toFixed(0)}MB   xterm/headless ${mbs(x, bytes)} MB/s   rioterm ${mbs(r, bytes)} MB/s`,
+    `${name.padEnd(6)} ${(bytes / 1024 / 1024).toFixed(0)}MB   xterm/headless ${mbs(x, bytes)} MB/s   rioterm ${mbs(r, bytes)} MB/s   wterm ${mbs(w, bytes)} MB/s`,
   );
 }

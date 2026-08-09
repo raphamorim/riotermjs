@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 
 const PORT = 4499;
 const RUNS = 3;
-const ENGINES = ['xterm', 'rioterm'];
+const ENGINES = ['xterm', 'rioterm', 'wterm'];
 const SCENARIOS = ['plainThroughput', 'ansiThroughput', 'altScreenFps', 'scrollbackScroll'];
 
 const vite = spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], {
@@ -85,19 +85,20 @@ await browser.close();
 
 // Side-by-side table.
 const fmt = (v) => (typeof v === 'number' ? v.toFixed(1) : String(v));
-console.log('\n=== rioterm vs xterm.js (medians) ===');
+console.log('\n=== medians ===');
+const metric = (name, pick) => [name, ...ENGINES.map((e) => pick(results[e]))];
 const rows = [
-  ['init ms', results.xterm.initMs, results.rioterm.initMs],
-  ['plain MB/s', results.xterm.plainThroughput.mbPerSec, results.rioterm.plainThroughput.mbPerSec],
-  ['ansi MB/s', results.xterm.ansiThroughput.mbPerSec, results.rioterm.ansiThroughput.mbPerSec],
-  ['altscreen fps', results.xterm.altScreenFps.fps, results.rioterm.altScreenFps.fps],
-  ['altscreen p95 ms', results.xterm.altScreenFps.frameP95Ms, results.rioterm.altScreenFps.frameP95Ms],
-  ['scrollback p95 ms', results.xterm.scrollbackScroll.frameP95Ms, results.rioterm.scrollbackScroll.frameP95Ms],
-  ['heap after plain MB', results.xterm.plainThroughput.heapMB, results.rioterm.plainThroughput.heapMB],
+  metric('init ms', (r) => r.initMs),
+  metric('plain MB/s', (r) => r.plainThroughput.mbPerSec),
+  metric('ansi MB/s', (r) => r.ansiThroughput.mbPerSec),
+  metric('altscreen fps', (r) => r.altScreenFps.fps),
+  metric('altscreen p95 ms', (r) => r.altScreenFps.frameP95Ms),
+  metric('scrollback p95 ms', (r) => r.scrollbackScroll.frameP95Ms),
+  metric('heap after plain MB', (r) => r.plainThroughput.heapMB),
 ];
-console.log('metric'.padEnd(22) + 'xterm'.padStart(12) + 'rioterm'.padStart(12));
-for (const [name, x, r] of rows) {
-  console.log(name.padEnd(22) + fmt(x).padStart(12) + fmt(r).padStart(12));
+console.log('metric'.padEnd(22) + ENGINES.map((e) => e.padStart(12)).join(''));
+for (const [name, ...vals] of rows) {
+  console.log(name.padEnd(22) + vals.map((v) => fmt(v).padStart(12)).join(''));
 }
 
 writeFileSync(new URL('./results.json', import.meta.url), JSON.stringify(results, null, 2));
