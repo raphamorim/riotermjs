@@ -32,15 +32,15 @@ runs. `results.json` gets the full numbers.
 
 Apple Silicon, Chrome 143 headless, 2026-08. Medians; run your own.
 
-| metric | xterm.js 6.0 (webgl) | rioterm 0.1.4 (canvas) | wterm 0.3.2 (dom) |
-| --- | --- | --- | --- |
-| init | 30.5 ms | 11.4 ms | 15.3 ms |
-| plain throughput | 176 MB/s | 513 MB/s | 48 MB/s |
-| ansi throughput | 108 MB/s | 234 MB/s | 129 MB/s |
-| altscreen fps | 120.0 (display-capped) | 119.9 (display-capped) | 120.0 (display-capped) |
-| altscreen frame p95 | 9.9 ms | 9.2 ms | 9.8 ms |
-| scrollback frame p95 | 9.5 ms | 9.1 ms | 9.9 ms |
-| JS heap after plain 8MB | 31.2 MB | 4.6 MB | 4.0 MB |
+| metric | xterm.js 6.0 (webgl) | rioterm 0.1.4 (canvas) | rioterm 0.1.4 (dom) | wterm 0.3.2 (dom) |
+| --- | --- | --- | --- | --- |
+| init | 34.6 ms | 11.4 ms | 18.4 ms | 11.7 ms |
+| plain throughput | 162 MB/s | 501 MB/s | 498 MB/s | 48 MB/s |
+| ansi throughput | 108 MB/s | 236 MB/s | 227 MB/s | 130 MB/s |
+| altscreen fps | 119.9 (display-capped) | 119.9 (display-capped) | 120.0 (display-capped) | 120.0 (display-capped) |
+| altscreen frame p95 | 9.5 ms | 8.8 ms | 8.6 ms | 8.9 ms |
+| scrollback frame p95 | 9.0 ms | 9.1 ms | 9.0 ms | 8.9 ms |
+| JS heap after plain 8MB | 31.4 MB | 3.9 MB | 4.8 MB | 3.8 MB |
 
 Parser-only (Node, 32MB): plain 168 / 1094 / 51 MB/s, ansi 102 / 236 /
 142 MB/s (xterm/headless, rioterm, wterm's `WasmBridge`).

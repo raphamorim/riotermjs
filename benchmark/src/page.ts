@@ -6,7 +6,7 @@
 
 import { Terminal as XTerm } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal as RioTerminal, CanvasRenderer, initWasm } from 'rioterm';
+import { Terminal as RioTerminal, CanvasRenderer, DOMRenderer, initWasm } from 'rioterm';
 import { WTerm } from '@wterm/dom';
 import '@wterm/dom/css';
 
@@ -59,6 +59,25 @@ async function makeRioterm(host: HTMLElement): Promise<Engine> {
     name: 'rioterm',
     // rioterm parses synchronously; resolve on the next microtask to keep
     // the await structure identical for both engines.
+    write: (bytes) => {
+      term.write(bytes);
+      return Promise.resolve();
+    },
+    scroll: (lines) => term.scrollLines(lines),
+    dispose: () => {
+      renderer.dispose();
+      term.dispose();
+    },
+  };
+}
+
+async function makeRiotermDom(host: HTMLElement): Promise<Engine> {
+  await initWasm();
+  const term = new RioTerminal({ cols: COLS, rows: ROWS, scrollback: 10000 });
+  const renderer = new DOMRenderer(term, { fontSize: 14, fontFamily: FONT });
+  host.appendChild(renderer.element);
+  return {
+    name: 'rioterm-dom',
     write: (bytes) => {
       term.write(bytes);
       return Promise.resolve();
@@ -178,7 +197,7 @@ const scenarios: Record<string, (engine: Engine) => Promise<Record<string, numbe
   },
 };
 
-type EngineName = 'xterm' | 'rioterm' | 'wterm';
+type EngineName = 'xterm' | 'rioterm' | 'rioterm-dom' | 'wterm';
 
 declare global {
   interface Window {
@@ -193,6 +212,7 @@ const host = () => document.getElementById('host')!;
 const makers: Record<EngineName, (host: HTMLElement) => Promise<Engine>> = {
   xterm: makeXterm,
   rioterm: makeRioterm,
+  'rioterm-dom': makeRiotermDom,
   wterm: makeWterm,
 };
 
