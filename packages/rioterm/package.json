@@ -1,6 +1,6 @@
 {
   "name": "rioterm",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Rio terminal for the web: the Rust VT core (librio) compiled to WebAssembly, with a canvas renderer and a headless API",
   "keywords": [
     "terminal",

@@ -32,7 +32,7 @@ runs. `results.json` gets the full numbers.
 
 Apple Silicon, Chrome 143 headless, 2026-08. Medians; run your own.
 
-| metric | xterm.js 6.0 (webgl) | rioterm 0.1.4-dev (canvas) | wterm 0.3.2 (dom) |
+| metric | xterm.js 6.0 (webgl) | rioterm 0.1.4 (canvas) | wterm 0.3.2 (dom) |
 | --- | --- | --- | --- |
 | init | 30.5 ms | 11.4 ms | 15.3 ms |
 | plain throughput | 176 MB/s | 513 MB/s | 48 MB/s |
