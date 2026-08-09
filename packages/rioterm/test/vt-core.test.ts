@@ -195,6 +195,26 @@ describe('alternate screen', () => {
   });
 });
 
+describe('chunked writes', () => {
+  it('escape sequences split across write() calls resume mid-sequence', () => {
+    const term = makeTerminal();
+    term.write('\x1b[3');
+    term.write('1mred\x1b[0m plain');
+    expect(term.textRow(0)).toBe('red plain');
+    expect(term.serialize()).toContain('\x1b[0;31;49m');
+    term.dispose();
+  });
+
+  it('a wide char split across chunks lands as one cell pair', () => {
+    const term = makeTerminal();
+    const bytes = new TextEncoder().encode('你');
+    term.write(bytes.slice(0, 2));
+    term.write(bytes.slice(2));
+    expect(term.textRow(0)).toBe('你');
+    term.dispose();
+  });
+});
+
 describe('cursor visibility', () => {
   it('DECTCEM hides and shows the cursor in the snapshot', () => {
     const term = makeTerminal();
