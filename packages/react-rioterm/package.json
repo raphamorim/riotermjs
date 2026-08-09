@@ -10,7 +10,10 @@
     "wasm"
   ],
   "license": "MIT",
-  "repository": "github:raphamorim/riotermjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raphamorim/riotermjs.git"
+  },
   "homepage": "https://raphamorim.github.io/riotermjs/",
   "type": "module",
   "main": "./dist/index.js",
