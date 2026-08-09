@@ -50,10 +50,14 @@ against its actual bottleneck," not as a pass.
 
 wterm ships two cores behind the same DOM renderer: its own minimal Zig
 core (default) and a libghostty core (`@wterm/ghostty`). The libghostty
-core is full-featured but, as published (0.3.2), parses at ~1-2 MB/s —
-two-plus orders of magnitude below the others — so it dominates the
-frame budget under any real output. Both wterm rows use the same
-renderer; only the VT engine differs.
+core is the real Ghostty VT parser (vendored from source, v1.3.1), but
+as published (0.3.2) it is a size-first wasm build — Zig `ReleaseSmall`
+with SIMD disabled (`.simd = false`) — so the scalar fallback paths run
+and it parses at ~1-2 MB/s, two-plus orders of magnitude below the
+others, dominating the frame budget under any real output. That is the
+shipped npm build, not Ghostty's native `ReleaseFast`+SIMD speed; it is
+included because it is the only way to run wterm on libghostty today.
+Both wterm rows use the same renderer; only the VT engine differs.
 
 Parser-only (Node, 32MB): plain 167 / 1095 / 51 / 1.9 MB/s, ansi 101 /
 233 / 142 / 1.4 MB/s (xterm/headless, rioterm, wterm zig, wterm
