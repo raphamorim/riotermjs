@@ -8,6 +8,7 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as RioTerminal, CanvasRenderer, DOMRenderer, initWasm } from 'rioterm';
 import { WTerm } from '@wterm/dom';
+import { GhosttyCore } from '@wterm/ghostty';
 import '@wterm/dom/css';
 
 import { plainChunks, ansiChunks, altScreenFrame, ALT_ENTER, ALT_LEAVE } from './workloads.mjs';
@@ -90,17 +91,24 @@ async function makeRiotermDom(host: HTMLElement): Promise<Engine> {
   };
 }
 
-async function makeWterm(host: HTMLElement): Promise<Engine> {
+// wterm's DOM renderer, with either its own Zig core (default) or the
+// libghostty core passed in. `core` lets us measure the same renderer on
+// two different VT engines.
+async function makeWtermWith(
+  name: string,
+  host: HTMLElement,
+  core?: Awaited<ReturnType<typeof GhosttyCore.load>>,
+): Promise<Engine> {
   const container = document.createElement('div');
   container.style.width = '1100px';
   container.style.height = '640px';
   container.style.fontFamily = FONT;
   container.style.fontSize = '14px';
   host.appendChild(container);
-  const term = new WTerm(container, { cols: COLS, rows: ROWS, autoResize: false });
+  const term = new WTerm(container, { cols: COLS, rows: ROWS, autoResize: false, core });
   await term.init();
   return {
-    name: 'wterm',
+    name,
     // wterm writes into the wasm core synchronously and schedules its
     // render; same await shape as rioterm.
     write: (bytes) => {
@@ -117,6 +125,15 @@ async function makeWterm(host: HTMLElement): Promise<Engine> {
     },
     dispose: () => term.destroy(),
   };
+}
+
+function makeWterm(host: HTMLElement): Promise<Engine> {
+  return makeWtermWith('wterm', host);
+}
+
+async function makeWtermGhostty(host: HTMLElement): Promise<Engine> {
+  const core = await GhosttyCore.load();
+  return makeWtermWith('wterm-ghostty', host, core);
 }
 
 function stats(samples: number[]) {
@@ -197,7 +214,7 @@ const scenarios: Record<string, (engine: Engine) => Promise<Record<string, numbe
   },
 };
 
-type EngineName = 'xterm' | 'rioterm' | 'rioterm-dom' | 'wterm';
+type EngineName = 'xterm' | 'rioterm' | 'rioterm-dom' | 'wterm' | 'wterm-ghostty';
 
 declare global {
   interface Window {
@@ -214,6 +231,7 @@ const makers: Record<EngineName, (host: HTMLElement) => Promise<Engine>> = {
   rioterm: makeRioterm,
   'rioterm-dom': makeRiotermDom,
   wterm: makeWterm,
+  'wterm-ghostty': makeWtermGhostty,
 };
 
 window.benchInit = async (which) => {

@@ -7,6 +7,7 @@ import xtermHeadless from '@xterm/headless';
 const { Terminal: XtermHeadless } = xtermHeadless;
 import { Terminal as RioTerminal, initWasm } from 'rioterm';
 import { WasmBridge } from '@wterm/core';
+import { GhosttyCore } from '@wterm/ghostty';
 import { plainChunks, ansiChunks } from './src/workloads.mjs';
 
 const COLS = 120;
@@ -48,6 +49,23 @@ async function wtermRun(chunks) {
   return ms;
 }
 
+// Node's fetch has no file:// scheme, so hand GhosttyCore its wasm as a
+// data: URL built from the installed package.
+const ghosttyWasmUrl =
+  'data:application/wasm;base64,' +
+  readFileSync(
+    new URL('./node_modules/@wterm/ghostty/wasm/ghostty-vt.wasm', import.meta.url),
+  ).toString('base64');
+
+async function wtermGhosttyRun(chunks) {
+  const core = await GhosttyCore.load({ wasmPath: ghosttyWasmUrl });
+  core.init(COLS, ROWS);
+  const start = performance.now();
+  for (const chunk of chunks) core.writeRaw(chunk);
+  const ms = performance.now() - start;
+  return ms;
+}
+
 const mbs = (ms, bytes) => (bytes / 1024 / 1024 / (ms / 1000)).toFixed(0);
 
 for (const [name, maker] of [
@@ -59,10 +77,12 @@ for (const [name, maker] of [
   await xtermRun(chunks);
   riotermRun(chunks);
   await wtermRun(chunks);
+  await wtermGhosttyRun(chunks);
   const x = Math.min(await xtermRun(chunks), await xtermRun(chunks), await xtermRun(chunks));
   const r = Math.min(riotermRun(chunks), riotermRun(chunks), riotermRun(chunks));
   const w = Math.min(await wtermRun(chunks), await wtermRun(chunks), await wtermRun(chunks));
+  const wg = Math.min(await wtermGhosttyRun(chunks), await wtermGhosttyRun(chunks), await wtermGhosttyRun(chunks));
   console.log(
-    `${name.padEnd(6)} ${(bytes / 1024 / 1024).toFixed(0)}MB   xterm/headless ${mbs(x, bytes)} MB/s   rioterm ${mbs(r, bytes)} MB/s   wterm ${mbs(w, bytes)} MB/s`,
+    `${name.padEnd(6)} ${(bytes / 1024 / 1024).toFixed(0)}MB   xterm/headless ${mbs(x, bytes)} MB/s   rioterm ${mbs(r, bytes)} MB/s   wterm ${mbs(w, bytes)} MB/s   wterm-ghostty ${mbs(wg, bytes)} MB/s`,
   );
 }

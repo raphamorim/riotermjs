@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 
 const PORT = 4499;
 const RUNS = 3;
-const ENGINES = ['xterm', 'rioterm', 'rioterm-dom', 'wterm'];
+const ENGINES = ['xterm', 'rioterm', 'rioterm-dom', 'wterm', 'wterm-ghostty'];
 const SCENARIOS = ['plainThroughput', 'ansiThroughput', 'altScreenFps', 'scrollbackScroll'];
 
 const vite = spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], {
