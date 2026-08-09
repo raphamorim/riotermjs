@@ -37,10 +37,16 @@ Apple Silicon, Chrome 143 headless, 2026-08. Medians; run your own.
 | init | 33.7 ms | 18.6 ms | 19.6 ms | 17.0 ms | 12.1 ms |
 | plain throughput | 178 MB/s | 576 MB/s | 501 MB/s | 51 MB/s | 1.6 MB/s |
 | ansi throughput | 108 MB/s | 251 MB/s | 247 MB/s | 136 MB/s | 1.2 MB/s |
-| altscreen fps | 119.9 (capped) | 119.9 (capped) | 120.0 (capped) | 120.0 (capped) | 120.0 (capped) |
-| altscreen frame p95 | 10.0 ms | 8.5 ms | 8.5 ms | 9.0 ms | 9.0 ms |
-| scrollback frame p95 | 9.2 ms | 8.7 ms | 9.1 ms | 9.2 ms | 9.0 ms |
+| altscreen fps | 119.9 (capped) | 119.9 (capped) | 120.0 (capped) | 120.0 (capped) | 120.0 † |
+| altscreen frame p95 | 10.0 ms | 8.5 ms | 8.5 ms | 9.0 ms | 9.0 ms † |
+| scrollback frame p95 | 9.2 ms | 8.7 ms | 9.1 ms | 9.2 ms | 9.0 ms † |
 | JS heap after plain 8MB | 25.0 MB | 4.6 MB | 4.8 MB | 3.7 MB | 4.5 MB |
+
+† The frame scenarios write only ~5 KB per frame, which fits the frame
+budget even at 1.5 MB/s, so the libghostty core reads as "keeps up" here.
+It does not under real output: at 1-2 MB/s it is throughput-bound (see the
+rows above), and these frame numbers should be read as "not measured
+against its actual bottleneck," not as a pass.
 
 wterm ships two cores behind the same DOM renderer: its own minimal Zig
 core (default) and a libghostty core (`@wterm/ghostty`). The libghostty

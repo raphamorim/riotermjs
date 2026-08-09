@@ -19,7 +19,7 @@ await initWasm(
 );
 
 async function xtermRun(chunks) {
-  const term = new XtermHeadless({ cols: COLS, rows: ROWS, scrollback: 2000, allowProposedApi: true });
+  const term = new XtermHeadless({ cols: COLS, rows: ROWS, scrollback: 10000, allowProposedApi: true });
   const start = performance.now();
   await new Promise((resolve) => {
     for (let i = 0; i < chunks.length; i++) {
@@ -32,7 +32,7 @@ async function xtermRun(chunks) {
 }
 
 function riotermRun(chunks) {
-  const term = new RioTerminal({ cols: COLS, rows: ROWS, scrollback: 2000 });
+  const term = new RioTerminal({ cols: COLS, rows: ROWS, scrollback: 10000 });
   const start = performance.now();
   for (const chunk of chunks) term.write(chunk);
   const ms = performance.now() - start;
