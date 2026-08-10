@@ -1,6 +1,6 @@
 {
   "name": "react-rioterm",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "React component for rioterm: Rio's Rust terminal core in WebAssembly, rendered as DOM",
   "keywords": [
     "react",
@@ -33,7 +33,7 @@
     "prepack": "node -e \"['dist/index.js','dist/index.d.ts'].forEach(f=>require('node:fs').accessSync(f))\" || (echo 'refusing to pack without built dist/' && exit 1)"
   },
   "dependencies": {
-    "rioterm": "^0.1.4"
+    "rioterm": "^0.1.5"
   },
   "peerDependencies": {
     "react": ">=18"
