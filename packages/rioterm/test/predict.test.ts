@@ -4,7 +4,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { KEY_ACTION_PRESS, KEY_CHAR, PredictionEngine } from '../src/index.js';
+import { KEY_ACTION_PRESS, KEY_CHAR, PredictionEngine, PredictionStats } from '../src/index.js';
 import { collectData, ensureWasm, makeTerminal } from './helpers.js';
 
 beforeAll(ensureWasm);
@@ -242,5 +242,80 @@ describe('predictive echo', () => {
     const ov = eng.overlay(term.snapshot());
     expect(ov.cells).toHaveLength(1);
     expect(ov.cells[0].flagged).toBe(true); // > 80ms: marked tentative
+  });
+
+  // --- Epochs / newline warm-up ---
+
+  it('predicts through Enter but holds the new line until the newline is confirmed', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(ENTER);
+    eng.onInput(enc('x')); // typed before the server processed the newline
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0); // held: tentative epoch
+
+    t = 5;
+    term.write('\r\n'); // server performs the newline: cursor -> row 1, col 0
+    const ov = eng.overlay(term.snapshot());
+    expect(ov.cells).toHaveLength(1);
+    expect(ov.cells[0]).toMatchObject({ row: 1, col: 0, codepoint: 0x78 });
+  });
+
+  // --- Cursor prediction ---
+
+  it('predicts left/right arrow cursor moves over confirmed text', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    eng.onInput(enc('b'));
+    t = 5;
+    term.write('ab'); // confirm; the real cursor is now at col 4
+    eng.overlay(term.snapshot());
+
+    eng.onInput(enc('\x1b[D')); // left arrow
+    expect(eng.overlay(term.snapshot()).cursor).toEqual({ row: 0, col: 3 });
+    eng.onInput(enc('\x1b[C')); // right arrow, back onto the real cursor
+    expect(eng.overlay(term.snapshot()).cursor).toBeNull();
+  });
+
+  it('predicts a word-back cursor move over typed text (ESC b)', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    for (const ch of 'ab.cd') eng.onInput(enc(ch));
+    t = 5;
+    term.write('ab.cd'); // confirm; cursor at col 7
+    eng.overlay(term.snapshot());
+    eng.onInput(enc('\x1bb')); // word-back -> start of "cd"
+    expect(eng.overlay(term.snapshot()).cursor).toEqual({ row: 0, col: 5 });
+  });
+
+  it('does not predict a cursor move past the editable region', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    // At the prompt with no typed text: left arrow must not walk into the prompt.
+    eng.onInput(enc('\x1b[D'));
+    expect(eng.overlay(term.snapshot()).cursor).toBeNull();
+  });
+
+  // --- Accuracy statistics + gating ---
+
+  it('PredictionStats tracks accuracy and ages samples out of the ring', () => {
+    const s = new PredictionStats();
+    for (let i = 0; i < 5; i++) s.record(100, i < 3); // 3 correct, 2 wrong
+    expect(s.sampleSize).toBe(5);
+    expect(s.accuracy).toBeCloseTo(3 / 5);
+    for (let i = 0; i < 24; i++) s.record(50, true); // overwrite the whole ring
+    expect(s.sampleSize).toBe(24);
+    expect(s.accuracy).toBe(1);
+  });
+
+  it('hides predictions when the accuracy window is mostly wrong', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    for (let i = 0; i < 6; i++) eng.stats.record(50, false); // window says we guess wrong
+    eng.onInput(enc('a'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
 });
