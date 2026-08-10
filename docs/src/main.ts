@@ -41,6 +41,10 @@ async function doMountHero(): Promise<void> {
   hero?.dispose();
   linux?.detach();
   bash?.detach();
+  // No predictiveEcho here on purpose: the hero runs against an in-browser VM
+  // shell with near-zero latency, where predictions would never surface. The
+  // predictive-echo engine is demoed separately in playground.html, which
+  // simulates round-trip latency so the overlay is actually visible.
   hero = await open(document.getElementById('hero-term')!, {
     renderer: state.renderer,
     scrollback: 2000,
