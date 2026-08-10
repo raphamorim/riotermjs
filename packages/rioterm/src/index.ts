@@ -42,3 +42,6 @@ export type { DOMRendererOptions } from './dom-renderer.js';
 
 export { open } from './dom.js';
 export type { OpenOptions, RioTermHandle, LinkHandler } from './dom.js';
+
+export { PredictionEngine } from './predict.js';
+export type { PredictionOptions, PredictionStyle, Overlay, OverlayCell } from './predict.js';

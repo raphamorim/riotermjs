@@ -5,6 +5,7 @@ import { Terminal, initWasm, type TerminalOptions } from './core.js';
 import { CanvasRenderer, type CanvasRendererOptions } from './canvas.js';
 import { DOMRenderer } from './dom-renderer.js';
 import { handleKeyboardEvent, modsOf } from './keys.js';
+import { PredictionEngine, type PredictionOptions } from './predict.js';
 
 export interface LinkHandler {
   /** Called when the user clicks an OSC 8 hyperlink. */
@@ -24,6 +25,13 @@ export interface OpenOptions extends TerminalOptions, CanvasRendererOptions {
    * a bridge (Electron, mobile WebView) or to disable the prompt.
    */
   linkHandler?: LinkHandler;
+  /**
+   * Predictive local echo (mosh-style): paint typed characters immediately
+   * and reconcile against the server's echo, so a high-latency PTY feels
+   * responsive. Canvas renderer only. Pass true for defaults or an options
+   * object to tune the latency threshold / style. Default off.
+   */
+  predictiveEcho?: boolean | PredictionOptions;
 }
 
 export interface RioTermHandle {
@@ -43,6 +51,20 @@ export async function open(
     options.renderer === 'dom'
       ? new DOMRenderer(terminal, options)
       : new CanvasRenderer(terminal, options);
+
+  // Predictive echo is a canvas-renderer overlay; wire it before input.
+  let predictions: PredictionEngine | undefined;
+  if (options.predictiveEcho && renderer instanceof CanvasRenderer) {
+    const popts = typeof options.predictiveEcho === 'object' ? options.predictiveEcho : {};
+    predictions = new PredictionEngine(terminal, popts);
+    renderer.predictions = predictions;
+  }
+  // Only genuine keystrokes should seed predictions; parser auto-responses
+  // (DA/DSR/OSC) also reach onData, so scope feeding to the keydown handler.
+  let userTyping = false;
+  terminal.onData((bytes) => {
+    if (userTyping) predictions?.onInput(bytes);
+  });
 
   const container = document.createElement('div');
   container.style.position = 'relative';
@@ -100,14 +122,23 @@ export async function open(
       e.preventDefault();
       return;
     }
-    if (handleKeyboardEvent(terminal, e)) e.preventDefault();
+    userTyping = true;
+    try {
+      if (handleKeyboardEvent(terminal, e)) e.preventDefault();
+    } finally {
+      userTyping = false;
+    }
   });
   on(textarea, 'keyup', (e) => {
     handleKeyboardEvent(terminal, e);
   });
   on(textarea, 'paste', (e) => {
     const text = e.clipboardData?.getData('text');
-    if (text) terminal.paste(text);
+    if (text) {
+      // A paste is bulk output we cannot predict; drop the current epoch.
+      predictions?.flush();
+      terminal.paste(text);
+    }
     e.preventDefault();
   });
 

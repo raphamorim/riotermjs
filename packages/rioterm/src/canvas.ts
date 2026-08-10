@@ -14,6 +14,7 @@ import {
   type Snapshot,
   type Terminal,
 } from './core.js';
+import type { Overlay, PredictionEngine } from './predict.js';
 import { ColorResolver, defaultTheme, type Theme } from './theme.js';
 
 export interface CanvasRendererOptions {
@@ -43,6 +44,9 @@ export class CanvasRenderer {
   private raf = 0;
   private sub: { dispose(): void };
   private hoverLink: { line: number; startCol: number; endCol: number } | null = null;
+
+  /** Optional predictive-echo overlay (mosh-style); set by open(). */
+  predictions: PredictionEngine | null = null;
 
   constructor(term: Terminal, options: CanvasRendererOptions = {}) {
     this.term = term;
@@ -165,7 +169,37 @@ export class CanvasRenderer {
       ctx.fillStyle = this.opts.theme.foreground;
       ctx.fillRect(startCol * cw, line * ch + ch - 2, (endCol - startCol + 1) * cw, 1);
     }
-    this.renderCursor(snap, cw, ch);
+
+    // Predictive echo owns the cursor while it has unconfirmed guesses: the
+    // authoritative cursor still sits behind them (the server has not echoed
+    // yet), so painting the frontier instead avoids a block over predicted text.
+    const overlay = this.predictions?.overlay(snap);
+    if (overlay && (overlay.cells.length > 0 || overlay.cursor)) {
+      this.renderPredictions(overlay, cw, ch);
+    } else {
+      this.renderCursor(snap, cw, ch);
+    }
+  }
+
+  private renderPredictions(overlay: Overlay, cw: number, ch: number): void {
+    const ctx = this.ctx;
+    const dim = this.predictions?.markStyle !== 'underline';
+    ctx.font = this.font();
+    for (const cell of overlay.cells) {
+      const x = cell.col * cw;
+      const y = cell.row * ch;
+      ctx.fillStyle = this.opts.theme.foreground;
+      ctx.globalAlpha = cell.flagged && dim ? 0.6 : 1;
+      ctx.fillText(String.fromCodePoint(cell.codepoint), x, y + this.baseline);
+      ctx.globalAlpha = 1;
+      if (cell.flagged && !dim) {
+        ctx.fillRect(x, y + ch - 2, cw, 1);
+      }
+    }
+    if (overlay.cursor) {
+      ctx.fillStyle = this.opts.theme.cursor;
+      ctx.fillRect(overlay.cursor.col * cw, overlay.cursor.row * ch, 2, ch);
+    }
   }
 
   private inSelection(snap: Snapshot, row: number, col: number): boolean {

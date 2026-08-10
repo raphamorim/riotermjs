@@ -423,6 +423,19 @@ export class Terminal {
   }
 
   /**
+   * Cursor position and visibility without materializing a full snapshot.
+   * Cheap enough to call per keystroke (predictive echo anchors on it).
+   */
+  cursorPosition(): { line: number; col: number; visible: boolean } {
+    this.raw.update();
+    return {
+      line: this.raw.cursor_line(),
+      col: this.raw.cursor_col(),
+      visible: this.raw.cursor_visible(),
+    };
+  }
+
+  /**
    * The link under a viewport cell, with the row-run to underline on
    * hover: an OSC 8 hyperlink when the program emitted one, else a
    * regex-detected plain-text URL (unless `detectUrls: false`). Wrapped
