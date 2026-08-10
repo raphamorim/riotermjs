@@ -196,6 +196,12 @@ export class CanvasRenderer {
     for (const cell of overlay.cells) {
       const x = cell.col * cw;
       const y = cell.row * ch;
+      if (cell.erase) {
+        // Predicted deletion: mask the real glyph with the theme background.
+        ctx.fillStyle = this.opts.theme.background;
+        ctx.fillRect(x, y, cw, ch);
+        continue;
+      }
       ctx.fillStyle = this.opts.theme.foreground;
       ctx.globalAlpha = cell.flagged && dim ? 0.6 : 1;
       ctx.fillText(String.fromCodePoint(cell.codepoint), x, y + this.baseline);

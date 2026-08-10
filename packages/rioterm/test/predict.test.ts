@@ -315,4 +315,134 @@ describe('predictive echo', () => {
     eng.onInput(enc('a'));
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
+
+  // H1: backspace over already-confirmed (server-owned) content at the frontier.
+  it('predicts an erase of confirmed content, confirms when the grid blanks', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    eng.onInput(enc('b'));
+    t = 5;
+    term.write('ab'); // confirm both; real cursor now at col 4
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+
+    // Nothing of ours left to pop: backspace erases the confirmed 'b'.
+    eng.onInput(BACKSPACE);
+    const ov = eng.overlay(term.snapshot());
+    expect(ov.cells).toHaveLength(1);
+    expect(ov.cells[0]).toMatchObject({ row: 0, col: 3, erase: true });
+    expect(ov.cursor).toEqual({ row: 0, col: 3 }); // frontier moved left
+
+    // Server applies the backspace: col 3 blanks -> erase confirms, stops drawing.
+    t = 10;
+    term.write('\x08 \x08'); // backspace, overwrite with space, backspace
+    const ov2 = eng.overlay(term.snapshot());
+    expect(ov2.cells).toHaveLength(0);
+  });
+
+  it('diverges an erase when the server puts another glyph there', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    eng.onInput(enc('b'));
+    t = 5;
+    term.write('ab');
+    eng.overlay(term.snapshot());
+
+    eng.onInput(BACKSPACE); // predict erase of 'b'
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+
+    t = 10;
+    term.write('\x08z'); // server rewrote col 3 as 'z' instead of blanking it
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0); // diverged
+  });
+
+  // H2: no-echo prompt (sudo/ssh) - unconfirmed chars expire as misses and the
+  // accuracy floor suppresses local echo after a few keystrokes.
+  it('stops showing predictions at a no-echo prompt (miss-on-expiry floor)', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    for (let i = 0; i < 6; i++) {
+      eng.onInput(enc('x')); // typed secret; server never echoes
+      eng.overlay(term.snapshot());
+      t += 2000; // no echo within max age
+      eng.overlay(term.snapshot()); // expires -> records a miss, resets
+    }
+    eng.onInput(enc('y'));
+    t += 1;
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0); // floor tripped
+  });
+
+  // H3: Home/End and Ctrl-A/Ctrl-E cursor jumps over confirmed text.
+  it('predicts Ctrl-A / Ctrl-E cursor jumps to line start / end', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    for (const ch of 'abc') eng.onInput(enc(ch));
+    t = 5;
+    term.write('abc'); // confirm; cursor at col 5
+    eng.overlay(term.snapshot());
+
+    eng.onInput(new Uint8Array([0x01])); // Ctrl-A -> line start
+    expect(eng.overlay(term.snapshot()).cursor).toEqual({ row: 0, col: 2 });
+    // Ctrl-E -> line end, which is the real (server) frontier: cursor handed back.
+    eng.onInput(new Uint8Array([0x05]));
+    expect(eng.overlay(term.snapshot()).cursor).toBeNull();
+  });
+
+  it('predicts Home (ESC[H) / End (ESC[F) cursor jumps', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    for (const ch of 'abc') eng.onInput(enc(ch));
+    t = 5;
+    term.write('abc');
+    eng.overlay(term.snapshot());
+
+    eng.onInput(enc('\x1b[H'));
+    expect(eng.overlay(term.snapshot()).cursor).toEqual({ row: 0, col: 2 });
+    eng.onInput(enc('\x1b[F')); // End: back onto the real frontier -> null
+    expect(eng.overlay(term.snapshot()).cursor).toBeNull();
+  });
+
+  // M1: latency-scaled expiry - a fast link clears an unechoed guess before 1s.
+  it('expires a stale prediction sooner than 1s on a fast link', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    eng.overlay(term.snapshot());
+    t = 10;
+    term.write('a'); // confirmed in 10ms -> maxAge floors at 500ms, not 1000ms
+    eng.overlay(term.snapshot());
+
+    eng.onInput(enc('b'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+    t = 10 + 700; // past 500ms but well under the old 1000ms bound
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+  });
+
+  // M2-M4: kill keys / Tab / arrows / bracketed paste all clear the line.
+  it('kill keys, Tab, arrows and paste markers clear pending predictions', () => {
+    const boundaries: Array<[string, Uint8Array]> = [
+      ['Ctrl-U', new Uint8Array([0x15])],
+      ['Ctrl-K', new Uint8Array([0x0b])],
+      ['Ctrl-W', new Uint8Array([0x17])],
+      ['Tab', TAB],
+      ['Up arrow', enc('\x1b[A')],
+      ['Down arrow', enc('\x1b[B')],
+      ['bracketed paste', enc('\x1b[200~')],
+    ];
+    for (const [, seq] of boundaries) {
+      const term = atPrompt();
+      const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+      eng.onInput(enc('a'));
+      expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+      eng.onInput(seq);
+      expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+    }
+  });
 });

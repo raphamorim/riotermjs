@@ -41,6 +41,11 @@ export interface OverlayCell {
   codepoint: number;
   /** Mark it tentative (underline/dim) because the link is slow. */
   flagged: boolean;
+  /**
+   * A predicted deletion: the renderer masks this cell with the theme
+   * background instead of drawing a glyph (codepoint is 0). Never a grid write.
+   */
+  erase?: boolean;
 }
 
 export interface Overlay {
@@ -60,6 +65,11 @@ interface CellPrediction {
   epoch: number;
   /** When the prediction was made (ms), for latency measurement and expiry. */
   at: number;
+  /**
+   * An erase (backspace over confirmed content): masks the cell to blank.
+   * Confirms when the grid cell blanks; diverges if it holds another glyph.
+   */
+  erase?: boolean;
 }
 
 /** A predicted cursor jump (Enter to next line, or an arrow / word move). */
@@ -75,10 +85,12 @@ const DEL = 0x7f;
 const BS = 0x08;
 const CR = 0x0d;
 const ESC = 0x1b;
+const CTRL_A = 0x01; // readline home
+const CTRL_E = 0x05; // readline end
 
-// A prediction the server never echoes (typed into a program that ignores
-// input) is dropped after this so the overlay does not keep a stale ghost.
-const PREDICTION_MAX_AGE = 1000;
+// Floor for the latency-scaled expiry (see maxAge): a prediction the server
+// never echoes is dropped after this so the overlay does not keep a stale ghost.
+const PREDICTION_MIN_MAX_AGE = 500;
 // SRTT smoothing (mosh uses 1/8).
 const SRTT_ALPHA = 0.125;
 // Underline/dim predictions when the link is this slow, cure below the low
@@ -309,8 +321,18 @@ export class PredictionEngine {
         this.predictEnter(now);
         return;
       }
+      if (b === CTRL_A) {
+        this.predictHomeEnd('home', now); // Ctrl-A: jump to line start
+        return;
+      }
+      if (b === CTRL_E) {
+        this.predictHomeEnd('end', now); // Ctrl-E: jump to line end
+        return;
+      }
       if (b < 0x20) {
-        this.reset(); // other C0 control (Tab, ^C, ...): do not predict.
+        // Other C0 control: kill keys (Ctrl-U/K/W), Tab, ^C and friends rewrite
+        // or redraw the line unpredictably. Drop the line's predictions.
+        this.reset();
         return;
       }
     }
@@ -382,17 +404,41 @@ export class PredictionEngine {
   }
 
   private predictBackspace(): void {
-    // We can only erase a char we ourselves predicted; erasing real content
-    // needs the server's authority.
+    // Fast path: pop a char we ourselves predicted and have not confirmed yet.
     const last = this.cells[this.cells.length - 1];
-    if (!last || !this.cursor || last.col !== this.cursor.col - 1) {
+    if (last && !last.erase && this.cursor && last.col === this.cursor.col - 1) {
+      this.cells.pop();
+      this.cursor = { row: last.row, col: last.col };
+      this.cursorAt = this.now();
+      this.lineMaxCol = Math.max(this.lineStartCol, this.lineMaxCol - 1);
+      return;
+    }
+    // Nothing of ours to pop: predict an erase of already-confirmed content at
+    // the frontier. Non-destructive; the grid is only masked, never mutated.
+    if (!this.anchor() || !this.cursor) {
       this.reset();
       return;
     }
-    this.cells.pop();
-    this.cursor = { row: last.row, col: last.col };
-    this.cursorAt = this.now();
-    this.lineMaxCol = Math.max(this.lineStartCol, this.lineMaxCol - 1);
+    const target = this.cursor.col - 1;
+    if (this.cursor.col === this.lineMaxCol && target >= this.lineStartCol) {
+      const glyph = this.gridCell(this.cursor.row, target);
+      if (glyph !== 0 && glyph !== SP) {
+        this.cells.push({
+          row: this.cursor.row,
+          col: target,
+          codepoint: 0,
+          original: glyph,
+          epoch: this.predEpoch,
+          at: this.now(),
+          erase: true,
+        });
+        this.cursor = { row: this.cursor.row, col: target };
+        this.cursorAt = this.now();
+        this.lineMaxCol = target;
+        return;
+      }
+    }
+    this.reset();
   }
 
   private predictEnter(now: number): void {
@@ -437,8 +483,30 @@ export class PredictionEngine {
       this.predictCursorMove(1, true, 1, now);
       return;
     }
-    // Any other escape sequence is unpredictable; drop the epoch.
+    // Home: CSI H, app-cursor SS3 H, or the VT ESC[1~.
+    if (text === '\x1b[H' || text === '\x1bOH' || text === '\x1b[1~') {
+      this.predictHomeEnd('home', now);
+      return;
+    }
+    // End: CSI F, app-cursor SS3 F, or the VT ESC[4~.
+    if (text === '\x1b[F' || text === '\x1bOF' || text === '\x1b[4~') {
+      this.predictHomeEnd('end', now);
+      return;
+    }
+    // Any other escape sequence (Up/Down arrows, bracketed paste, ...) is
+    // unpredictable; drop the epoch so nothing stale flashes before the redraw.
     this.reset();
+  }
+
+  private predictHomeEnd(which: 'home' | 'end', now: number): void {
+    if (!this.anchor() || !this.cursor) return;
+    // Do not move a tentative (unconfirmed) line: the frontier is not real yet.
+    if (this.predEpoch > this.confirmedEpoch) return;
+    // Clamp to the editable region, same bounds predictCursorMove uses.
+    const col = which === 'home' ? this.lineStartCol : this.lineMaxCol;
+    if (col === this.cursor.col) return;
+    this.cursor = { row: this.cursor.row, col };
+    this.cursorAt = now;
   }
 
   private predictCursorMove(delta: -1 | 1, byWords: boolean, amount: number, now: number): void {
@@ -503,6 +571,15 @@ export class PredictionEngine {
     this.becomeTentative();
   }
 
+  // Latency-scaled expiry: a wrong guess clears fast on a quick link, while a
+  // legitimately slow echo is not killed prematurely. Bounded below so a very
+  // fast link still tolerates a frame or two of jitter.
+  private maxAge(): number {
+    const lat = this._stats.latency;
+    const observed = lat.count > 0 ? lat.max : (this.srtt ?? 0);
+    return Math.max(PREDICTION_MIN_MAX_AGE, Math.round(1.5 * observed));
+  }
+
   private recordLatency(sample: number): void {
     this.srtt =
       this.srtt === undefined ? sample : this.srtt * (1 - SRTT_ALPHA) + sample * SRTT_ALPHA;
@@ -562,7 +639,7 @@ export class PredictionEngine {
       if (snap.cursorLine >= this.pendingNewline.row) {
         this.confirmedEpoch = Math.max(this.confirmedEpoch, this.pendingNewline.epoch);
         this.pendingNewline = null;
-      } else if (now - this.pendingNewline.at > PREDICTION_MAX_AGE) {
+      } else if (now - this.pendingNewline.at > this.maxAge()) {
         this.reset();
         return empty;
       }
@@ -576,6 +653,32 @@ export class PredictionEngine {
         return empty;
       }
       const real = cellCodepoint(snap, p.row, p.col);
+      const blank = real === 0 || real === SP;
+      if (p.erase) {
+        // An erase confirms when the server blanks the cell (backspace applied),
+        // stays pending while the old glyph remains, and diverges otherwise.
+        if (blank) {
+          this.recordLatency(now - p.at);
+          this._stats.record(now - p.at, true);
+          this.confirmedEpoch = Math.max(this.confirmedEpoch, p.epoch);
+          this.failures = 0;
+          this.cells.shift();
+          continue;
+        }
+        if (real === p.original) {
+          if (now - p.at > this.maxAge()) {
+            this._stats.record(now - p.at, false); // no-echo: count a miss
+            this.reset();
+            return empty;
+          }
+          this.notePending(now - p.at);
+          break;
+        }
+        this._stats.record(now - p.at, false);
+        if (p.epoch > this.confirmedEpoch) this.killEpoch();
+        else this.diverge(now);
+        return empty;
+      }
       if (real === p.codepoint && real !== p.original) {
         // The server echoed exactly what we guessed: confirmed, retire it.
         this.recordLatency(now - p.at);
@@ -585,9 +688,12 @@ export class PredictionEngine {
         this.cells.shift();
         continue;
       }
-      if (real === 0 || real === SP) {
+      if (blank) {
         // Not echoed yet. Everything after is also pending; expire if stale.
-        if (now - p.at > PREDICTION_MAX_AGE) {
+        // A miss on expiry lets the accuracy floor auto-suppress local echo at a
+        // no-echo prompt (sudo/ssh); a backend termios ECHO signal is the full fix.
+        if (now - p.at > this.maxAge()) {
+          this._stats.record(now - p.at, false);
           this.reset();
           return empty;
         }
@@ -615,7 +721,7 @@ export class PredictionEngine {
         !tentative &&
         (this.cursor.row !== snap.cursorLine || this.cursor.col !== snap.cursorCol)
       ) {
-        if (now - this.cursorAt > PREDICTION_MAX_AGE) {
+        if (now - this.cursorAt > this.maxAge()) {
           this.reset();
           return empty;
         }
@@ -639,6 +745,7 @@ export class PredictionEngine {
       col: p.col,
       codepoint: p.codepoint,
       flagged,
+      erase: !!p.erase,
     }));
     return { cells, cursor: this.cursor ? { ...this.cursor } : null };
   }
