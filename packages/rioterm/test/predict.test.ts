@@ -111,6 +111,22 @@ describe('predictive echo', () => {
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
 
+  it('setEnabled(false) clears and stops predicting (observer role flip)', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    eng.onInput(enc('a'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+
+    eng.setEnabled(false);
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+    eng.onInput(enc('b'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+
+    eng.setEnabled(true);
+    eng.onInput(enc('c'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+  });
+
   it('keeps showing predictions on a slow link', () => {
     const term = atPrompt();
     let t = 0;

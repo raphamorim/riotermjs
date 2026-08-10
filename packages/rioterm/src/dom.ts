@@ -39,6 +39,12 @@ export interface RioTermHandle {
   renderer: CanvasRenderer | DOMRenderer;
   focus(): void;
   dispose(): void;
+  /**
+   * Toggle predictive echo at runtime (e.g. when a viewer's role flips
+   * between controller and observer). No-op unless the terminal was opened
+   * with predictiveEcho, since that is when the engine is created.
+   */
+  setPredictiveEcho(enabled: boolean): void;
 }
 
 export async function open(
@@ -251,6 +257,7 @@ export async function open(
     terminal,
     renderer,
     focus: () => textarea.focus(),
+    setPredictiveEcho: (enabled: boolean) => predictions?.setEnabled(enabled),
     dispose() {
       observer?.disconnect();
       for (const dispose of disposers) dispose();
