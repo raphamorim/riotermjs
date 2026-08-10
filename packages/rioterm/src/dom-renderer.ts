@@ -14,6 +14,7 @@ import {
   STYLE_STRIKEOUT,
   STYLE_ANY_UNDERLINE,
   WIDE_SPACER,
+  CELL_HAS_CLUSTER,
   type Snapshot,
   type Terminal,
 } from './core.js';
@@ -272,7 +273,14 @@ export class DOMRenderer {
         if (deco) parts.push(`text-decoration:${deco}`);
         css = parts.join(';');
       }
-      text += codepoint === 0 ? ' ' : String.fromCodePoint(codepoint);
+      // A cluster cell's word holds only the base codepoint; emit the
+      // full text (ZWJ emoji, decomposed accents) in its place.
+      text +=
+        codepoint === 0
+          ? ' '
+          : word & CELL_HAS_CLUSTER
+            ? (this.term.clusterText(row, col) ?? String.fromCodePoint(codepoint))
+            : String.fromCodePoint(codepoint);
     }
     flush();
   }

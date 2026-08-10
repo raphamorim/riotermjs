@@ -47,6 +47,24 @@ describe('DOMRenderer', () => {
     term.dispose();
   });
 
+  it('renders full grapheme clusters, not just their base codepoint', () => {
+    // Mode 2027 is on by default: the farmer ZWJ sequence lands in one
+    // wide cell whose codepoint word carries only the base. The DOM
+    // must show the whole cluster, followed by the pipe two cells in.
+    const term = makeTerminal({ cols: 20, rows: 2 });
+    const renderer = new DOMRenderer(term);
+    term.write('\u{1F9D1}\u{200D}\u{1F33E}|');
+    renderNow(renderer);
+    const cluster = '\u{1F9D1}\u{200D}\u{1F33E}';
+    const text = rows(renderer)[0].textContent ?? '';
+    expect(text).toContain(cluster);
+    // The wide cell's spacer is skipped, so the pipe follows the
+    // cluster directly (indexOf counts UTF-16 units).
+    expect(text.indexOf('|')).toBe(text.indexOf(cluster) + cluster.length);
+    renderer.dispose();
+    term.dispose();
+  });
+
   it('paints selection with the theme colors', () => {
     const term = makeTerminal({ cols: 20, rows: 2 });
     const renderer = new DOMRenderer(term);

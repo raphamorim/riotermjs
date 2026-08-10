@@ -35,6 +35,12 @@ export const WIDE_NARROW = 0;
 export const WIDE_WIDE = 1;
 export const WIDE_SPACER = 2;
 
+// Set in the codepoint word when the cell carries a grapheme cluster
+// (mode 2027): the word's codepoint is only the cluster base, and the
+// full text comes from Terminal.clusterText(). Renderers that ignore
+// the bit keep drawing bases.
+export const CELL_HAS_CLUSTER = 1 << 23;
+
 export interface TerminalOptions {
   cols?: number;
   rows?: number;
@@ -382,6 +388,16 @@ export class Terminal {
 
   getSelection(): string | undefined {
     return this.raw.selection_text();
+  }
+
+  /**
+   * The full text of a viewport cell that carries a grapheme cluster:
+   * the base codepoint plus its attached codepoints (a ZWJ emoji, a
+   * decomposed accent). `undefined` for cells without one; check
+   * CELL_HAS_CLUSTER in the cell's codepoint word before calling.
+   */
+  clusterText(line: number, col: number): string | undefined {
+    return this.raw.cluster_text(line, col);
   }
 
   // render state

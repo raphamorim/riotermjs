@@ -11,6 +11,7 @@ import {
   STYLE_ANY_UNDERLINE,
   STYLE_STRIKEOUT,
   WIDE_SPACER,
+  CELL_HAS_CLUSTER,
   type Snapshot,
   type Terminal,
 } from './core.js';
@@ -281,7 +282,13 @@ export class CanvasRenderer {
       }
       ctx.fillStyle = fg;
       ctx.globalAlpha = flags & STYLE_DIM ? 0.6 : 1;
-      ctx.fillText(String.fromCodePoint(codepoint), col * cw, y + this.baseline);
+      // A cluster cell's word holds only the base codepoint; draw the
+      // full text (ZWJ emoji, decomposed accents) in its place.
+      const text =
+        word & CELL_HAS_CLUSTER
+          ? (this.term.clusterText(row, col) ?? String.fromCodePoint(codepoint))
+          : String.fromCodePoint(codepoint);
+      ctx.fillText(text, col * cw, y + this.baseline);
       ctx.globalAlpha = 1;
 
       if (flags & STYLE_ANY_UNDERLINE) {
@@ -310,15 +317,17 @@ export class CanvasRenderer {
         ctx.fillRect(x, y, cw, ch);
         // Repaint the glyph under the block in background color.
         const idx = (snap.cursorLine * snap.cols + snap.cursorCol) * CELL_WORDS;
-        const codepoint = snap.cells[idx] & 0x1fffff;
+        const word = snap.cells[idx];
+        const codepoint = word & 0x1fffff;
         if (codepoint > 32) {
           ctx.font = this.font(snap.cells[idx + 3]);
           ctx.fillStyle = this.opts.theme.background;
-          ctx.fillText(
-            String.fromCodePoint(codepoint),
-            x,
-            y + this.baseline,
-          );
+          const text =
+            word & CELL_HAS_CLUSTER
+              ? (this.term.clusterText(snap.cursorLine, snap.cursorCol) ??
+                String.fromCodePoint(codepoint))
+              : String.fromCodePoint(codepoint);
+          ctx.fillText(text, x, y + this.baseline);
         }
       }
     }
