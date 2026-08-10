@@ -88,9 +88,12 @@ const ESC = 0x1b;
 const CTRL_A = 0x01; // readline home
 const CTRL_E = 0x05; // readline end
 
-// Floor for the latency-scaled expiry (see maxAge): a prediction the server
-// never echoes is dropped after this so the overlay does not keep a stale ghost.
-const PREDICTION_MIN_MAX_AGE = 500;
+// Grace period before giving up on an un-echoed prediction (see maxAge). It
+// must comfortably exceed real round-trip time so a slow-but-real echo is never
+// killed prematurely (that would suppress predictions on exactly the slow links
+// they help most); only a true no-echo prompt should reach it. Wrong guesses do
+// not wait for this - they clear immediately via the divergence path.
+const PREDICTION_MIN_MAX_AGE = 1500;
 // SRTT smoothing (mosh uses 1/8).
 const SRTT_ALPHA = 0.125;
 // Underline/dim predictions when the link is this slow, cure below the low
@@ -571,13 +574,14 @@ export class PredictionEngine {
     this.becomeTentative();
   }
 
-  // Latency-scaled expiry: a wrong guess clears fast on a quick link, while a
-  // legitimately slow echo is not killed prematurely. Bounded below so a very
-  // fast link still tolerates a frame or two of jitter.
+  // How long to wait for an un-echoed prediction before giving up on it. Scaled
+  // well above observed round-trip time (3x) so a slow-but-real echo always
+  // confirms first; only a true no-echo prompt reaches the timeout. Wrong
+  // guesses never wait for this: the divergence path clears them at once.
   private maxAge(): number {
     const lat = this._stats.latency;
     const observed = lat.count > 0 ? lat.max : (this.srtt ?? 0);
-    return Math.max(PREDICTION_MIN_MAX_AGE, Math.round(1.5 * observed));
+    return Math.max(PREDICTION_MIN_MAX_AGE, Math.round(3 * observed));
   }
 
   private recordLatency(sample: number): void {

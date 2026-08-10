@@ -195,7 +195,7 @@ describe('predictive echo', () => {
     const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
     eng.onInput(enc('a'));
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
-    t = 2000; // past the ~1s max age with no echo
+    t = 2000; // past the ~1.5s no-echo grace
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
 
@@ -408,20 +408,30 @@ describe('predictive echo', () => {
     expect(eng.overlay(term.snapshot()).cursor).toBeNull();
   });
 
-  // M1: latency-scaled expiry - a fast link clears an unechoed guess before 1s.
-  it('expires a stale prediction sooner than 1s on a fast link', () => {
+  // M1 + slow-link regression: an un-echoed prediction must survive well past
+  // real round-trip time, so a slow link still shows predictions instead of
+  // expiring them as misses and self-suppressing. It only gives up after a
+  // generous no-echo grace. Wrong guesses clear immediately via divergence.
+  it('keeps a slow-but-pending prediction alive until its echo arrives', () => {
     const term = atPrompt();
     let t = 0;
     const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
     eng.onInput(enc('a'));
-    eng.overlay(term.snapshot());
-    t = 10;
-    term.write('a'); // confirmed in 10ms -> maxAge floors at 500ms, not 1000ms
-    eng.overlay(term.snapshot());
-
-    eng.onInput(enc('b'));
+    t = 600; // a frame renders before the 800ms echo: must NOT expire
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
-    t = 10 + 700; // past 500ms but well under the old 1000ms bound
+    t = 800;
+    term.write('a'); // echo finally lands
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0); // confirmed, not a miss
+  });
+
+  it('gives up on an un-echoed prediction only after the no-echo grace', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    t = 1000; // within grace: still shown
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+    t = 2000; // past the ~1.5s grace: given up
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
 
