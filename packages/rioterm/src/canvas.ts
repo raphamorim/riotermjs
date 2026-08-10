@@ -174,7 +174,7 @@ export class CanvasRenderer {
     // authoritative cursor still sits behind them (the server has not echoed
     // yet), so painting the frontier instead avoids a block over predicted text.
     // A fault in prediction must never break the frame, so it can't take the
-    // terminal down with it — fall back to the plain cursor.
+    // terminal down with it; fall back to the plain cursor.
     let overlay: Overlay | undefined;
     try {
       overlay = this.predictions?.overlay(snap);

@@ -244,8 +244,7 @@ describe('predictive echo', () => {
     expect(ov.cells[0].flagged).toBe(true); // > 80ms: marked tentative
   });
 
-  // --- Epochs / newline warm-up ---
-
+  // Epochs / newline warm-up
   it('predicts through Enter but holds the new line until the newline is confirmed', () => {
     const term = atPrompt();
     let t = 0;
@@ -261,8 +260,7 @@ describe('predictive echo', () => {
     expect(ov.cells[0]).toMatchObject({ row: 1, col: 0, codepoint: 0x78 });
   });
 
-  // --- Cursor prediction ---
-
+  // Cursor prediction
   it('predicts left/right arrow cursor moves over confirmed text', () => {
     const term = atPrompt();
     let t = 0;
@@ -299,8 +297,7 @@ describe('predictive echo', () => {
     expect(eng.overlay(term.snapshot()).cursor).toBeNull();
   });
 
-  // --- Accuracy statistics + gating ---
-
+  // Accuracy statistics + gating
   it('PredictionStats tracks accuracy and ages samples out of the ring', () => {
     const s = new PredictionStats();
     for (let i = 0; i < 5; i++) s.record(100, i < 3); // 3 correct, 2 wrong

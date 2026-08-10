@@ -40,7 +40,7 @@ predictEl.addEventListener('change', () => {
 });
 
 // Surface any uncaught error (e.g. a throw inside rioterm's onData listeners)
-// on screen — a throw in the prediction feed would otherwise be invisible.
+// on screen; a throw in the prediction feed would otherwise be invisible.
 window.addEventListener('error', (e) => {
   lastError = `window.onerror: ${e.message}`;
   render();

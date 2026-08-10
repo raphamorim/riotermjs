@@ -192,7 +192,7 @@ export class Terminal {
     return new Terminal(options);
   }
 
-  // ------------------------------------------------------------- events
+  // events
 
   /** Bytes to deliver to the backend (keystrokes, mouse reports, DA). */
   onData(fn: (data: Uint8Array) => void): Disposable {
@@ -222,7 +222,7 @@ export class Terminal {
     return this.progressListeners.add(fn);
   }
 
-  // -------------------------------------------------------------- input
+  // input
 
   /** Child/backend output to display (xterm.js write()). */
   write(data: string | Uint8Array): void {
@@ -357,7 +357,7 @@ export class Terminal {
     );
   }
 
-  // ---------------------------------------------------------- selection
+  // selection
 
   selectionBegin(
     viewportLine: number,
@@ -384,7 +384,7 @@ export class Terminal {
     return this.raw.selection_text();
   }
 
-  // ------------------------------------------------------- render state
+  // render state
 
   /** Pull a fresh grid snapshot. Call once per frame, then render it. */
   snapshot(): Snapshot {
