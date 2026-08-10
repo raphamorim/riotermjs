@@ -173,7 +173,15 @@ export class CanvasRenderer {
     // Predictive echo owns the cursor while it has unconfirmed guesses: the
     // authoritative cursor still sits behind them (the server has not echoed
     // yet), so painting the frontier instead avoids a block over predicted text.
-    const overlay = this.predictions?.overlay(snap);
+    // A fault in prediction must never break the frame, so it can't take the
+    // terminal down with it — fall back to the plain cursor.
+    let overlay: Overlay | undefined;
+    try {
+      overlay = this.predictions?.overlay(snap);
+    } catch (err) {
+      console.error('rioterm: prediction overlay failed', err);
+      overlay = undefined;
+    }
     if (overlay && (overlay.cells.length > 0 || overlay.cursor)) {
       this.renderPredictions(overlay, cw, ch);
     } else {

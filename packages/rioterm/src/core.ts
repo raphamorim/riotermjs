@@ -114,7 +114,17 @@ function listeners<T extends unknown[]>() {
       return { dispose: () => set.delete(fn) };
     },
     emit(...args: T) {
-      for (const fn of set) fn(...args);
+      // Isolate listeners: one throwing subscriber must not abort the loop and
+      // starve the others. This matters most for onData, where a broken
+      // enhancement listener (e.g. predictive echo) would otherwise swallow the
+      // keystroke before the listener that actually sends it to the backend.
+      for (const fn of set) {
+        try {
+          fn(...args);
+        } catch (err) {
+          console.error('rioterm: listener threw', err);
+        }
+      }
     },
   };
 }

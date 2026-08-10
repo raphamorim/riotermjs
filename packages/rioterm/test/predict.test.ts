@@ -4,8 +4,8 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { PredictionEngine } from '../src/index.js';
-import { ensureWasm, makeTerminal } from './helpers.js';
+import { KEY_ACTION_PRESS, KEY_CHAR, PredictionEngine } from '../src/index.js';
+import { collectData, ensureWasm, makeTerminal } from './helpers.js';
 
 beforeAll(ensureWasm);
 
@@ -125,6 +125,105 @@ describe('predictive echo', () => {
     eng.setEnabled(true);
     eng.onInput(enc('c'));
     expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+  });
+
+  // Regression: predictive echo is fed from an onData listener registered
+  // before the embedder's input listener. If a throw there aborted the emit
+  // loop, the real keystroke never reached the backend and typing silently
+  // broke. onData must isolate listener errors.
+  it('a throwing onData listener never swallows input for other listeners', () => {
+    const term = makeTerminal();
+    const sink = collectData(term);
+    term.onData(() => {
+      throw new Error('broken enhancement listener');
+    });
+    // Re-collect after the thrower so we assert delivery past it.
+    let afterThrower = '';
+    term.onData((bytes) => {
+      afterThrower += String.fromCharCode(...bytes);
+    });
+    term.key(KEY_ACTION_PRESS, KEY_CHAR, 0x61, 0, 0, 0, false, 'a');
+    expect(sink.text()).toBe('a'); // listener before the thrower still fired
+    expect(afterThrower).toBe('a'); // and the one after it too
+  });
+
+  it('confirms predictions in order across a multi-char burst', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    eng.onInput(enc('b'));
+    eng.onInput(enc('c'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(3);
+
+    t = 10;
+    term.write('a'); // only the first char echoes so far
+    let ov = eng.overlay(term.snapshot());
+    expect(ov.cells).toHaveLength(2);
+    expect(ov.cells.map((c) => c.codepoint)).toEqual([0x62, 0x63]);
+
+    t = 20;
+    term.write('bc'); // the rest catches up
+    ov = eng.overlay(term.snapshot());
+    expect(ov.cells).toHaveLength(0);
+    expect(ov.cursor).toBeNull();
+  });
+
+  it('never predicts past the last column (wrap is ambiguous)', () => {
+    const term = makeTerminal({ cols: 6, rows: 4 });
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    // Fill toward the edge; the engine must stop before column cols-1.
+    for (const ch of 'abcdef') eng.onInput(enc(ch));
+    const ov = eng.overlay(term.snapshot());
+    for (const cell of ov.cells) expect(cell.col).toBeLessThan(term.options.cols - 1);
+  });
+
+  // Mosh's core guarantee: predictions are an overlay, never authoritative.
+  it('overlay never mutates the authoritative snapshot', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    eng.onInput(enc('a'));
+    const snap = term.snapshot();
+    const before = Uint32Array.from(snap.cells);
+    eng.overlay(snap);
+    expect(snap.cells).toEqual(before);
+  });
+
+  it('retires an unconfirmed prediction after the max age (never lingers)', () => {
+    const term = atPrompt();
+    let t = 0;
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => t });
+    eng.onInput(enc('a'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(1);
+    t = 2000; // past the ~1s max age with no echo
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+  });
+
+  it('stops predicting after repeated wrong guesses (accuracy cooldown)', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0, now: () => 0 });
+    for (let i = 0; i < 3; i++) {
+      eng.onInput(enc('a'));
+      term.write('*'); // server contradicts every time (e.g. a masked prompt)
+      eng.overlay(term.snapshot());
+    }
+    eng.onInput(enc('a'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0); // in cooldown
+  });
+
+  it('does not predict, or throw, on combining/multibyte sequences', () => {
+    const term = atPrompt();
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    expect(() => eng.onInput(enc('é'))).not.toThrow(); // e + combining acute
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
+  });
+
+  it('does not predict over existing content (no mid-line overwrite)', () => {
+    const term = makeTerminal({ cols: 40, rows: 10 });
+    term.write('abc\r'); // CR returns the cursor over the existing "abc"
+    const eng = new PredictionEngine(term, { latencyThreshold: 0 });
+    eng.onInput(enc('x'));
+    expect(eng.overlay(term.snapshot()).cells).toHaveLength(0);
   });
 
   it('keeps showing predictions on a slow link', () => {
