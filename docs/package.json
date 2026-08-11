@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "predev": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs && node ../scripts/fetch-bash-webc.mjs",
-    "dev": "vite",
+    "dev": "oj dev",
     "prebuild": "node ../scripts/fetch-linux-image.mjs && node ../scripts/build-v86-state.mjs && node ../scripts/fetch-bash-webc.mjs",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "oj build",
+    "preview": "oj preview"
   },
   "dependencies": {
     "@wasmer/sdk": "^0.10.0",
@@ -15,7 +15,6 @@
     "v86": "^0.5.431"
   },
   "devDependencies": {
-    "typescript": "^5.9.2",
-    "vite": "^7.3.4"
+    "typescript": "^5.9.2"
   }
 }
