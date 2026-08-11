@@ -33,6 +33,9 @@ jobs:
       - name: Build wasm from pinned rio rev
         run: node scripts/build-wasm.mjs
 
+      - name: Install oj (docs build tool)
+        run: cargo install oj
+
       - run: npm ci
       - run: npm run build
       - run: npm test
@@ -78,6 +81,9 @@ jobs:
 
       - name: Build wasm from pinned rio rev
         run: node scripts/build-wasm.mjs
+
+      - name: Install oj (docs build tool)
+        run: cargo install oj
 
       - run: npm ci
       - run: npm run build
