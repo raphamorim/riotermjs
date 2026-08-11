@@ -1,7 +1,7 @@
 // A real bash, instantly: sharrattj/bash from the Wasmer registry running
 // under WASIX in the browser. Needs cross-origin isolation (COOP/COEP
 // headers) for SharedArrayBuffer; docs/public/_headers provides them on
-// Cloudflare Pages and vite sets them in dev/preview. Where isolation is
+// Cloudflare Pages and oj sets them in dev/preview. Where isolation is
 // missing (plain GitHub Pages) the program toggle falls back to Linux.
 
 import type { Terminal } from 'rioterm';
